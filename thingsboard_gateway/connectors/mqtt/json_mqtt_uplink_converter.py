@@ -57,6 +57,9 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
 
         try:
             for datatype in datatypes:
+                print("=============")
+                print(datatype)
+                print("=============")
                 timestamp = data.get("ts", data.get("timestamp")) if datatype == 'timeseries' else None
                 dict_result[datatypes[datatype]] = []
                 for datatype_config in self.__config.get(datatype, []):

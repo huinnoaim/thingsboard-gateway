@@ -1,5 +1,5 @@
 thingsboard:
-  host: thingsboard.cloud
+  host: http://a61506e04be2b4c5aa4092841a5806a0-1206035145.ap-northeast-2.elb.amazonaws.com
   port: 1883
   remoteShell: false
   remoteConfiguration: false
@@ -17,7 +17,7 @@ thingsboard:
     inactivityTimeoutSeconds: 120
     inactivityCheckPeriodSeconds: 10
   security:
-    accessToken: PUT_YOUR_GW_ACCESS_TOKEN_HERE
+    accessToken: erZXZWyhotB7HXy62mtc
   qos: 1
 storage:
   type: memory
