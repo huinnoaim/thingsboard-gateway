@@ -1,0 +1,27 @@
+
+types:
+  le_s_long:
+    # Little-endian four byte float.
+    size: 4
+    function:
+      name: struct
+      args:
+        fmt: '<L'
+
+  be_s_int:
+    # Big-endian four byte signed integer.
+    size: 4
+    function:
+      name: struct
+      args:
+        fmt: '>i'
+
+  meta-datatype:
+    size: 1
+    function:
+      name: text
+
+  reserved:
+    size: 3
+    function:
+      name: text

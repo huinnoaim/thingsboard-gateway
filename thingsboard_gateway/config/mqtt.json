@@ -1,7 +1,7 @@
 {
   "broker": {
     "name": "Default Local Broker",
-    "host": "iotgateway.karina-huinno.tk",
+    "host": "localhost",
     "port": 1883,
     "clientId": "ThingsBoard_gateway",
     "version": 5,

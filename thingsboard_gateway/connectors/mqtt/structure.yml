@@ -1,0 +1,15 @@
+
+- name: timestamp
+  type: le_s_long
+
+- name: metadatatype
+  type: meta-datatype
+
+- name: reserved
+  type: reserved
+
+- name: metadata
+  type: le_s_long
+
+- name: ecgdataindex
+  type: be_s_int

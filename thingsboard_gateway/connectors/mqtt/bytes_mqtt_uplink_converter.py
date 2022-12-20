@@ -7,6 +7,12 @@ from simplejson import dumps
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+import yaml
+import os
+import numpy as np
+
+from bin_parser import BinReader
+
 
 SENSOR_ECG_DATA_RECIEVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECIEVE_SUCCEED'
 PAYLOAD= {
@@ -89,19 +95,30 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         ecg064data = [1,2,3,4]
         concatEcgData = []
 
-        def parse_ecgData(ecgDataArr):
-            return None
-
-        def parse_timestamp(arr):
-            reversed_arr = list(reversed(arr))
-            return int(reversed_arr[0] + reversed_arr[1][2:] + reversed_arr[2][2:] + reversed_arr[3][2:],16)
-
-        def base64ToHex(str):
+        def base64parser(str):
             decode = []
             bin = base64.b64decode(re.sub('/[ \r\n]+$/', '', str))
             for x in range(256):
                 decode.append(hex(bin[x]))
-            return decode
+            parser = BinReader(
+                bin[:16],
+                yaml.safe_load(open(os.getcwd()+'/thingsboard_gateway/connectors/mqtt/structure.yml')),
+                yaml.safe_load(open(os.getcwd()+'/thingsboard_gateway/connectors/mqtt/types.yml')))
+            
+            parser.parsed['ecgData'] = decode[16:]
+            return parser.parsed
+
+        def parseEcgData(hexArr):
+            result = []
+            bitArr = [ format(int(i,16),'08b') for i in hexArr]
+            reshapArr = np.reshape(bitArr, (len(bitArr)//3,3))
+
+            for x in reshapArr:
+                row = ''.join(x)
+                result.append(int(row[:12],2))
+                result.append(int(row[12:],2))
+
+            return result
 
         if isEncrypted == PAYLOAD["PARAM"]["ENCRYPTED"] and operation == PAYLOAD["PARAM"]["MONITORING"]:
             expected_packetLength = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"] * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]
@@ -112,25 +129,25 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
                     offset = i * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"];
                     slice_obj = slice(offset,offset + PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"])
                     fragment = ecgData[slice_obj]
-                    ecg064data[i] = base64ToHex(fragment);
+                    ecg064data[i] = base64parser(fragment);
             else:
                 return None
         else:
             return None
 
         for x in range(PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]):
-            concatEcgData = concatEcgData + ecg064data[i][16:]
-        
-        parse_ecgData(concatEcgData)
-        # parsing
+            concatEcgData = concatEcgData + ecg064data[i]['ecgData']
+
+        finalEcgData = parseEcgData(concatEcgData)
 
         data = {
             'type': SENSOR_ECG_DATA_RECIEVE_SUCCEED,
             'serialNumber': serial_number,
-            'timestamp': parse_timestamp(ecg064data[0][0:4]),
-            # 'meta': ecg064data[0][8:12],
-            # 'index': ecg064data[0][12:16],
-            'ecgData': concatEcgData
+            'timestamp': ecg064data[0]['timestamp'],
+            'mataData': ecg064data[0]['metadata'],
+            'ecgDataIndex': ecg064data[0]['ecgdataindex'],
+            'metaDataType': ecg064data[0]['metadatatype'],
+            'ecgData': finalEcgData
         }
         return data
     @staticmethod
