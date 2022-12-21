@@ -1,9 +1,9 @@
 {
   "broker": {
     "name": "Default Local Broker",
-    "host": "localhost",
+    "host": "iotgateway.karina-huinno.tk",
     "port": 1883,
-    "clientId": "ThingsBoard_gateway",
+    "clientId": "teawoo ThingsBoard_gateway",
     "version": 5,
     "maxMessageNumberPerWorker": 10,
     "maxNumberOfWorkers": 100,

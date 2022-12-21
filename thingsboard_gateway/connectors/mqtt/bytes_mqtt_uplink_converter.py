@@ -95,30 +95,48 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         ecg064data = [1,2,3,4]
         concatEcgData = []
 
-        def base64parser(str):
-            decode = []
-            bin = base64.b64decode(re.sub('/[ \r\n]+$/', '', str))
-            for x in range(256):
-                decode.append(hex(bin[x]))
+        def headerParser(headerBin):
             parser = BinReader(
-                bin[:16],
+                headerBin[:16],
                 yaml.safe_load(open(os.getcwd()+'/thingsboard_gateway/connectors/mqtt/structure.yml')),
                 yaml.safe_load(open(os.getcwd()+'/thingsboard_gateway/connectors/mqtt/types.yml')))
-            
-            parser.parsed['ecgData'] = decode[16:]
             return parser.parsed
 
-        def parseEcgData(hexArr):
-            result = []
-            bitArr = [ format(int(i,16),'08b') for i in hexArr]
-            reshapArr = np.reshape(bitArr, (len(bitArr)//3,3))
+        def bodyParser(bodyBin):
+            body = []
+            for x in range(0, len(bodyBin), 3) :
+                hh = bodyBin[x]
+                mm = bodyBin[x+1]
+                ll = bodyBin[x+2]
 
-            for x in reshapArr:
-                row = ''.join(x)
-                result.append(int(row[:12],2))
-                result.append(int(row[12:],2))
+                v1 = (hh<<4) + ((mm&0xF0)>>4)
+                v2 = ((mm&0x0F)<<8) + ll
 
-            return result
+                if v1>2047:
+                    v1 = v1- 0xFFF -1      
+            
+                if v2>2047:
+                    v2 = v2- 0xFFF -1    
+
+                v1 = (v1 * 3.05) / 1000
+                if v1 < -4:
+                    v1 = -4
+                elif v1 > 4:
+                    v1 = 4
+
+                v2 = (v2 * 3.05) / 1000
+                
+                body.append(v1)
+                body.append(v2)
+            return body
+
+        def ecgParser(str):
+            bin = base64.b64decode(re.sub('/[ \r\n]+$/', '', str))
+            header = headerParser(bin[:16])
+            body = bodyParser(bin[16:])
+
+            header['ecgdata'] = body
+            return header
 
         if isEncrypted == PAYLOAD["PARAM"]["ENCRYPTED"] and operation == PAYLOAD["PARAM"]["MONITORING"]:
             expected_packetLength = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"] * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]
@@ -129,16 +147,14 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
                     offset = i * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"];
                     slice_obj = slice(offset,offset + PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"])
                     fragment = ecgData[slice_obj]
-                    ecg064data[i] = base64parser(fragment);
+                    ecg064data[i] = ecgParser(fragment);
             else:
                 return None
         else:
             return None
 
         for x in range(PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]):
-            concatEcgData = concatEcgData + ecg064data[i]['ecgData']
-
-        finalEcgData = parseEcgData(concatEcgData)
+            concatEcgData = concatEcgData + ecg064data[x]['ecgdata']
 
         data = {
             'type': SENSOR_ECG_DATA_RECIEVE_SUCCEED,
@@ -147,7 +163,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             'mataData': ecg064data[0]['metadata'],
             'ecgDataIndex': ecg064data[0]['ecgdataindex'],
             'metaDataType': ecg064data[0]['metadatatype'],
-            'ecgData': finalEcgData
+            'ecgData': concatEcgData
         }
         return data
     @staticmethod

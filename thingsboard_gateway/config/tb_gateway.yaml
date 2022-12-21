@@ -1,5 +1,6 @@
 thingsboard:
   host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
+  # host: 192.168.123.2
   port: 8883
   remoteShell: false
   remoteConfiguration: false
@@ -18,6 +19,7 @@ thingsboard:
     inactivityCheckPeriodSeconds: 10
   security:
     accessToken: 33jhTWtQkSo1dm3LkWKK
+    # accessToken: q46ihhU28WEqDH4aQOXI
   qos: 1
 storage:
   type: memory
