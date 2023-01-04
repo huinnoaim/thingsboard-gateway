@@ -39,7 +39,8 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
     def convert(self, topic, data):
         datatypes = {"timeseries": "telemetry"}
         dict_result = {
-            "deviceName": self.parse_device_name(topic, data, self.__config),
+            'deviceName': '',
+            # "deviceName": self.parse_device_name(topic, data, self.__config),
             "telemetry": []
         }
 
@@ -57,6 +58,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             log.exception(e)
 
         log.debug('Converted data: %s', dict_result)
+        dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
         return dict_result
 
     @staticmethod
