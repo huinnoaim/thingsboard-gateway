@@ -12,6 +12,7 @@
 #      See the License for the specific language governing permissions and
 #      limitations under the License.
 
+VERSION = "3.2"
 
 # Service constants
 
@@ -43,9 +44,11 @@ TELEMETRY_TIMESTAMP_PARAMETER = "ts"
 TELEMETRY_VALUES_PARAMETER = "values"
 
 SEND_ON_CHANGE_PARAMETER = "sendDataOnlyOnChange"
-SEND_ON_CHANGE_TTL_PARAMETER = "sendDataOnlyOnChangeTts"
+# TTL value in milliseconds
+SEND_ON_CHANGE_TTL_PARAMETER = "sendDataOnlyOnChangeTtl"
 
 DEFAULT_SEND_ON_CHANGE_VALUE = False
+# TTL value in milliseconds
 DEFAULT_SEND_ON_CHANGE_INFINITE_TTL_VALUE = 0
 
 # RPC parameter constants

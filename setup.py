@@ -17,11 +17,12 @@
 from setuptools import setup
 from os import path
 
+from thingsboard_gateway.gateway.constants import VERSION
+
+
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
-
-VERSION = "3.2"
 
 setup(
     version=VERSION,
@@ -36,7 +37,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.7",
     packages=['thingsboard_gateway', 'thingsboard_gateway.gateway', 'thingsboard_gateway.gateway.proto', 'thingsboard_gateway.gateway.grpc_service',
-              'thingsboard_gateway.storage', 'thingsboard_gateway.storage.memory',
+              'thingsboard_gateway.storage', 'thingsboard_gateway.storage.memory', 'thingsboard_gateway.gateway.shell',
               'thingsboard_gateway.storage.file', 'thingsboard_gateway.storage.sqlite',
               'thingsboard_gateway.connectors', 'thingsboard_gateway.connectors.ble', 'thingsboard_gateway.connectors.socket',
               'thingsboard_gateway.connectors.mqtt',  'thingsboard_gateway.connectors.opcua_asyncio', 'thingsboard_gateway.connectors.xmpp',
@@ -71,6 +72,7 @@ setup(
     entry_points={
         'console_scripts': [
             'thingsboard-gateway = thingsboard_gateway.tb_gateway:daemon',
-            'tb-gateway-configurator = thingsboard_gateway.gateway.configuration_wizard:configure'
+            'tb-gateway-configurator = thingsboard_gateway.gateway.configuration_wizard:configure',
+            'tb-gateway-shell = thingsboard_gateway.gateway.shell:main'
         ]
     })

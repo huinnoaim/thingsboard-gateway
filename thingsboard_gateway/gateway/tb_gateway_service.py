@@ -15,6 +15,7 @@
 import logging
 import logging.config
 import logging.handlers
+import multiprocessing.managers
 from signal import signal, SIGINT
 import subprocess
 from copy import deepcopy
@@ -33,7 +34,9 @@ from yaml import safe_load
 from thingsboard_gateway.gateway.constant_enums import DeviceActions, Status
 from thingsboard_gateway.gateway.constants import CONNECTED_DEVICES_FILENAME, CONNECTOR_PARAMETER, \
     PERSISTENT_GRPC_CONNECTORS_KEY_FILENAME
+from thingsboard_gateway.gateway.device_filter import DeviceFilter
 from thingsboard_gateway.gateway.duplicate_detector import DuplicateDetector
+from thingsboard_gateway.gateway.shell.proxy import AutoProxy
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.gateway.tb_client import TBClient
 from thingsboard_gateway.storage.file.file_event_storage import FileEventStorage
@@ -81,6 +84,10 @@ DEFAULT_STATISTIC = {
     'statsSendPeriodInSeconds': 3600
 }
 
+DEFAULT_DEVICE_FILTER = {
+    'enable': False
+}
+
 SECURITY_VAR = ('accessToken', 'caCert', 'privateKey', 'cert')
 
 
@@ -116,7 +123,29 @@ def get_env_variables():
     return converted_env_variables
 
 
+class GatewayManager(multiprocessing.managers.BaseManager):
+    def __init__(self, address=None, authkey=b''):
+        super().__init__(address=address, authkey=authkey)
+        self.gateway = None
+
+    def has_gateway(self):
+        return self.gateway is not None
+
+    def add_gateway(self, gateway):
+        self.gateway = gateway
+
+
 class TBGatewayService:
+    EXPOSED_GETTERS = [
+        'ping',
+        'get_status',
+        'get_storage_name',
+        'get_storage_events_count',
+        'get_available_connectors',
+        'get_connector_status',
+        'get_connector_config'
+    ]
+
     def __init__(self, config_file=None):
         signal(SIGINT, lambda _, __: self.__stop_gateway())
 
@@ -258,12 +287,31 @@ class TBGatewayService:
                                    name="Send data to Thingsboard Thread")
         self._send_thread.start()
 
+        self.__device_filter_config = self.__config['thingsboard'].get('deviceFiltering', DEFAULT_DEVICE_FILTER)
+        self.__device_filter = None
+        if self.__device_filter_config['enable']:
+            self.__device_filter = DeviceFilter(config_path=self._config_dir + self.__device_filter_config[
+                'filterFile'] if self.__device_filter_config.get('filterFile') else None)
+
         self.__duplicate_detector = DuplicateDetector(self.available_connectors)
 
         log.info("Gateway started.")
 
         self._watchers_thread = Thread(target=self._watchers, name='Watchers', daemon=True)
         self._watchers_thread.start()
+
+        self.manager = GatewayManager(address='/tmp/gateway', authkey=b'gateway')
+        GatewayManager.register('get_gateway', self.get_gateway, proxytype=AutoProxy, exposed=self.EXPOSED_GETTERS,
+                                create_method=False)
+        self.server = self.manager.get_server()
+        self.server.serve_forever()
+
+    def get_gateway(self):
+        if self.manager.has_gateway():
+            return self.manager.gateway
+        else:
+            self.manager.add_gateway(self)
+            self.manager.register('gateway', lambda: self, proxytype=AutoProxy)
 
     def _watchers(self):
         try:
@@ -375,6 +423,7 @@ class TBGatewayService:
         log.info("The gateway has been stopped.")
         self.tb_client.disconnect()
         self.tb_client.stop()
+        self.manager.shutdown()
 
     def __init_remote_configuration(self, force=False):
         if (self.__config["thingsboard"].get("remoteConfiguration") or force) and self.__remote_configurator is None:
@@ -661,6 +710,14 @@ class TBGatewayService:
 
     def send_to_storage(self, connector_name, data):
         try:
+            device_valid = True
+            if self.__device_filter:
+                device_valid = self.__device_filter.validate_device(connector_name, data)
+
+            if not device_valid:
+                log.warning('Device %s forbidden', data['deviceName'])
+                return Status.FORBIDDEN_DEVICE
+
             filtered_data = self.__duplicate_detector.filter_data(connector_name, data)
             if filtered_data:
                 self.__converted_data_queue.put((connector_name, filtered_data), True, 100)
@@ -1263,6 +1320,40 @@ class TBGatewayService:
                           disconnect_device_after_idle)
 
             sleep(check_devices_idle_every_sec)
+
+    # GETTERS --------------------
+    def ping(self):
+        return self.name
+
+    # ----------------------------
+    # Storage --------------------
+    def get_storage_name(self):
+        return self._event_storage.__class__.__name__
+
+    def get_storage_events_count(self):
+        return self._event_storage.len()
+
+    # Connectors -----------------
+    def get_available_connectors(self):
+        return {num + 1: name for (num, name) in enumerate(self.available_connectors)}
+
+    def get_connector_status(self, name):
+        try:
+            connector = self.available_connectors[name]
+            return {'connected': connector.is_connected()}
+        except KeyError:
+            return f'Connector {name} not found!'
+
+    def get_connector_config(self, name):
+        try:
+            connector = self.available_connectors[name]
+            return connector.get_config()
+        except KeyError:
+            return f'Connector {name} not found!'
+
+    # Gateway ----------------------
+    def get_status(self):
+        return {'connected': self.tb_client.is_connected()}
 
 
 if __name__ == '__main__':
