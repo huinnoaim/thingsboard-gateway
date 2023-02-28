@@ -8,7 +8,7 @@ PyInquirer
 pyfiglet
 termcolor
 grpcio==1.51.1
-protobuf<=4.21.12
+protobuf<=3.20
 cachetools
 cryptography<3.5
 numpy
