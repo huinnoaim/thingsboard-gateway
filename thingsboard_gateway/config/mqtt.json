@@ -1,7 +1,7 @@
 {
   "broker": {
     "name": "Default Local Broker",
-    "host": "iotgateway.karina-huinno.tk",
+    "host": "mosquitto.karina-huinno.tk",
     "port": 1883,
     "clientId": "teawoo ThingsBoard_gateway",
     "version": 5,

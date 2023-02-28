@@ -1,7 +1,7 @@
 thingsboard:
   host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
   # host: 192.168.123.2
-  port: 8883
+  port: 8081
   remoteShell: false
   remoteConfiguration: false
   statistics:
