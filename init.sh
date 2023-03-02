@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
-# install python3.8
-#sudo apt install python3.8-venv
+# install python3.9
+#sudo apt install python3.9-venv
 
 # run
-python3 -m venv venv
+python3.9 -m venv venv
 . venv/bin/activate
-python3 -m thingsboard_gateway.tb_gateway
+python -m thingsboard_gateway.tb_gateway

@@ -3,7 +3,7 @@
     "name": "Default Local Broker",
     "host": "mosquitto.karina-huinno.tk",
     "port": 1883,
-    "clientId": "teawoo ThingsBoard_gateway",
+    "clientId": "IoMT_gateway",
     "version": 5,
     "maxMessageNumberPerWorker": 10,
     "maxNumberOfWorkers": 100,
@@ -25,5 +25,60 @@
         ]
       }
     }
-  ]
+  ],
+  "connectRequests": [
+    {
+      "topicFilter": "sensor/connect",
+      "deviceNameJsonExpression": "${SerialNumber}"
+    },
+    {
+      "topicFilter": "sensor/+/connect",
+      "deviceNameTopicExpression": "(?<=sensor\/)(.*?)(?=\/connect)"
+    }
+  ],
+  "disconnectRequests": [
+    {
+      "topicFilter": "sensor/disconnect",
+      "deviceNameJsonExpression": "${SerialNumber}"
+    },
+    {
+      "topicFilter": "sensor/+/disconnect",
+      "deviceNameTopicExpression": "(?<=sensor\/)(.*?)(?=\/disconnect)"
+    }
+  ],
+  "attributeRequests": [
+    {
+      "retain": false,
+      "topicFilter": "v1/devices/me/attributes/request",
+      "deviceNameJsonExpression": "${serialNumber}",
+      "attributeNameJsonExpression": "${versionAttribute}, ${pduAttribute}",
+      "topicExpression": "devices/${deviceName}/attrs",
+      "valueExpression": "${attributeKey}: ${attributeValue}"
+    }
+  ],
+  "attributeUpdates": [
+    {
+      "retain": true,
+      "deviceNameFilter": "SmartMeter.*",
+      "attributeFilter": "uploadFrequency",
+      "topicExpression": "sensor/${deviceName}/${attributeKey}",
+      "valueExpression": "{\"${attributeKey}\":\"${attributeValue}\"}"
+    }
+  ],
+  "serverSideRpc": [
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "echo",
+      "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
+      "responseTopicExpression": "sensor/${deviceName}/response/${methodName}/${requestId}",
+      "responseTimeout": 10000,
+      "valueExpression": "${params}"
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "no-reply",
+      "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
+      "valueExpression": "${params}"
+    }
+]
 }

@@ -172,42 +172,11 @@ class MqttConnector(Connector, Thread):
             "name",
             'Mqtt Broker ' + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)))))
 
-        # if "username" in self.__broker["security"]:
-        #     self._client.username_pw_set(self.__broker["security"]["username"],
-        #                                  self.__broker["security"]["password"])
-
-        # if "caCert" in self.__broker["security"] \
-        #         or self.__broker["security"].get("type", "none").lower() == "tls":
-        #     ca_cert = self.__broker["security"].get("caCert")
-        #     private_key = self.__broker["security"].get("privateKey")
-        #     cert = self.__broker["security"].get("cert")
-
-        #     if ca_cert is None:
-        #         self._client.tls_set_context(ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
-        #     else:
-        #         try:
-        #             self._client.tls_set(ca_certs=ca_cert,
-        #                                  certfile=cert,
-        #                                  keyfile=private_key,
-        #                                  cert_reqs=ssl.CERT_REQUIRED,
-        #                                  tls_version=ssl.PROTOCOL_TLSv1_2,
-        #                                  ciphers=None)
-        #         except Exception as e:
-        #             self.__log.error("Cannot setup connection to broker %s using SSL. "
-        #                              "Please check your configuration.\nError: ",
-        #                              self.get_name())
-        #             self.__log.exception(e)
-        #         if self.__broker["security"].get("insecure", False):
-        #             self._client.tls_insecure_set(True)
-        #         else:
-        #             self._client.tls_insecure_set(False)
-
         # Set up external MQTT broker callbacks ------------------------------------------------------------------------
         self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message
         self._client.on_subscribe = self._on_subscribe
         self._client.on_disconnect = self._on_disconnect
-        # self._client.on_log = self._on_log
 
         # Set up lifecycle flags ---------------------------------------------------------------------------------------
         self._connected = False
@@ -228,7 +197,7 @@ class MqttConnector(Connector, Thread):
 
     def get_config(self):
         return self.config
-    
+
     def get_ttl_for_duplicates(self, device_name):
         return self.__send_data_only_on_change_ttl
 
