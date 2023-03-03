@@ -200,6 +200,33 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
+def calculate_hr(device_name, start_ts, ecg_list):
+    field_ts = str(start_ts)
+    field_ecg = ecg_list
+
+    # valid with 10s
+    ecg_cache.ex_set(field_ts, field_ecg, timeout=10, tag=device_name)
+    # log.info(list(ecg_cache))
+    # log.info(len(list(ecg_cache)))
+    # calculate HR
+    hr_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+    # log.info(len(list(hr_input)))
+    # log.info(list(hr_input))
+    # hr_input tuple = (timestamp, ecg, device_name)
+    hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
+    log.info(list(map(lambda d: d[0], hr_input)))
+    hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
+    hr_input = np.array(hr_input, np.float).flatten().tolist()
+    # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
+    # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
+    log.info(len(hr_input))
+    # log.info(list(hr_input))
+    # 250 samples/s
+    hr = hr_detector.detect(hr_input, 250)
+    log.info(device_name + ', HR: ' + str(hr))
+    return hr
+
+
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
@@ -247,26 +274,8 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
 
         log.info('device_name: ' + device_name + ', ts: ' + field_ts + ',ecg: ' + field_ecg)
-
-        # valid with 10s
-        ecg_cache.ex_set(field_ts, field_ecg, timeout=10, tag=device_name)
-        # log.info(list(ecg_cache))
-        # log.info(len(list(ecg_cache)))
-        # calculate HR
-        hr_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
-        # log.info(len(list(hr_input)))
-        # log.info(list(hr_input))
-        # hr_input tuple = (timestamp, ecg, device_name)
-        hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
-        log.info(list(map(lambda d: d[0], hr_input)))
-        hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
-        hr_input = np.array(hr_input, np.float).flatten().tolist()
-        # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
-        # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
-        log.info(len(hr_input))
-        # log.info(list(hr_input))
-        # 250 samples/s
-        hr = hr_detector.detect(hr_input, 250)
+        hr = calculate_hr(device_name, field_ts, field_ecg)
         log.info(device_name + ', HR: ' + str(hr))
+        dict_result['telemetry'][0]['values']['hr'] = hr
 
         return dict_result
