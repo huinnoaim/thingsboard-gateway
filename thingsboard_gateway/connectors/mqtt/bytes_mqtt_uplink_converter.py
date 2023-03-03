@@ -14,6 +14,8 @@ from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplink
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 from cache3 import SafeCache
+import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
+import numpy as np
 
 SENSOR_ECG_DATA_RECEIVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECEIVE_SUCCEED'
 PAYLOAD = {
@@ -39,6 +41,7 @@ log.info(structure, types)
 # key: name, value: cache
 # stream_buffer = dict()
 ecg_cache = SafeCache()
+
 
 def parse_data(expression, data):
     parsed = None
@@ -200,7 +203,6 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
-        log.info('*****conveter contructing...')
 
     @property
     def config(self):
@@ -236,8 +238,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             log.exception(e)
 
         # Extract the device name from the telemetry data
-        if dict_result['telemetry']:
-            dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
+        dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
 
         log.debug('Converted data: %s', dict_result)
 
@@ -249,12 +250,23 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
 
         # valid with 10s
         ecg_cache.ex_set(field_ts, field_ecg, timeout=10, tag=device_name)
-        log.info(list(ecg_cache))
-        log.info(len(list(ecg_cache)))
-        cached = ecg_cache.get_many([i for i in range(10)], tag=device_name)
-        log.info(cached)
-
+        # log.info(list(ecg_cache))
+        # log.info(len(list(ecg_cache)))
         # calculate HR
-
+        hr_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+        # log.info(len(list(hr_input)))
+        # log.info(list(hr_input))
+        # hr_input tuple = (timestamp, ecg, device_name)
+        hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
+        log.info(list(map(lambda d: d[0], hr_input)))
+        hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
+        hr_input = np.array(hr_input, np.float).flatten().tolist()
+        # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
+        # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
+        log.info(len(hr_input))
+        # log.info(list(hr_input))
+        # 250 samples/s
+        hr = hr_detector.detect(hr_input, 250)
+        log.info(device_name + ', HR: ' + str(hr))
 
         return dict_result

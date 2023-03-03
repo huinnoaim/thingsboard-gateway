@@ -5,7 +5,6 @@ from time import time, sleep
 
 import simplejson
 
-
 class StatisticsService(Thread):
     DATA_STREAMS_STATISTICS = {
         'receivedBytesFromDevices': 0,
