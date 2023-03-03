@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import re
 import time
@@ -12,6 +13,7 @@ from simplejson import dumps
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+from cache3 import SafeCache
 
 SENSOR_ECG_DATA_RECEIVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECEIVE_SUCCEED'
 PAYLOAD = {
@@ -34,6 +36,9 @@ types = yaml.safe_load(open(path_types_yml).read())
 
 log.info(structure, types)
 
+# key: name, value: cache
+# stream_buffer = dict()
+ecg_cache = SafeCache()
 
 def parse_data(expression, data):
     parsed = None
@@ -195,6 +200,7 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
+        log.info('*****conveter contructing...')
 
     @property
     def config(self):
@@ -234,4 +240,21 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
 
         log.debug('Converted data: %s', dict_result)
+
+        device_name = str(dict_result['deviceName'])
+        field_ts = str(dict_result['telemetry'][0]['ts'])
+        field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
+
+        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ',ecg: ' + field_ecg)
+
+        # valid with 10s
+        ecg_cache.ex_set(field_ts, field_ecg, timeout=10, tag=device_name)
+        log.info(list(ecg_cache))
+        log.info(len(list(ecg_cache)))
+        cached = ecg_cache.get_many([i for i in range(10)], tag=device_name)
+        log.info(cached)
+
+        # calculate HR
+
+
         return dict_result

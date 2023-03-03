@@ -13,3 +13,4 @@ cachetools
 cryptography<3.5
 numpy
 bin-parser
+cache3
