@@ -41,6 +41,7 @@ log.info(structure, types)
 # key: name, value: cache
 # stream_buffer = dict()
 ecg_cache = SafeCache()
+ttl_cache = SafeCache()
 
 
 def parse_data(expression, data):
@@ -153,12 +154,14 @@ def parse_payload(data):
         ecg064data[i] = parse_ecg(fragment)
         concat_ecg_data += ecg064data[i]['ecgdata']
 
+    ecg_index = ecg064data[0]['ecgdataindex']
+
     data = {
         'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
         'serialNumber': serial_number,
         'timestamp': ecg064data[0]['timestamp'],
         'mataData': ecg064data[0]['metadata'],
-        'ecgDataIndex': ecg064data[0]['ecgdataindex'],
+        'ecgDataIndex': ecg_index,
         'metaDataType': ecg064data[0]['metadatatype'],
         'ecgData': concat_ecg_data
     }
@@ -200,16 +203,46 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def calculate_hr(device_name, start_ts, ecg_list):
+def queuing_ecg(device_name, start_ts, ecg_list):
     field_ts = str(start_ts)
     field_ecg = ecg_list
 
-    # valid with 10s
-    ecg_cache.ex_set(field_ts, field_ecg, timeout=10, tag=device_name)
+    # valid with 1m
+    # 1min =  1x60
+    ecg_cache.ex_set(field_ts, field_ecg, timeout=1 * 60, tag=device_name)
+
+    # 60s ttl
+    if ttl_cache.has_key(device_name, tag='ttl') is False:
+        ttl_cache.set(device_name, 'ttl', timeout=1*60, tag='ttl')
+        # todo
+        ## send ai data
+
+    ttl = ttl_cache.ttl(device_name, tag='ttl')
+    log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
     # log.info(list(ecg_cache))
+    # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
     # log.info(len(list(ecg_cache)))
+
+
+def fetch_ecg(device_name):
+    ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+    ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
+    log.info(list(map(lambda d: d[0], ai_input)))
+    ai_input = list(map(lambda d: json.loads(d[1]), ai_input))
+    ai_input = np.array(ai_input, np.float).flatten().tolist()
+    # 1min =  250*60 = 15000
+    ai_input = ai_input[:15000]
+    # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
+    log.info('ECG cache value length ' + device_name + ' : ' + str(len(list(ai_input))))
+    # log.info(len(ai_input))
+    return ai_input
+
+
+def calculate_hr(device_name):
     # calculate HR
-    hr_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+    # now_ms = int( time.time_ns() / 1000 )
+    now_ms = int(time.time())
+    hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_ms - 10)), list(ecg_cache))
     # log.info(len(list(hr_input)))
     # log.info(list(hr_input))
     # hr_input tuple = (timestamp, ecg, device_name)
@@ -274,7 +307,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
 
         log.info('device_name: ' + device_name + ', ts: ' + field_ts + ',ecg: ' + field_ecg)
-        hr = calculate_hr(device_name, field_ts, field_ecg)
+        queuing_ecg(device_name, field_ts, field_ecg)
+        # debugging
+        fetch_ecg(device_name)
+        # ---
+        hr = calculate_hr(device_name)
         log.info(device_name + ', HR: ' + str(hr))
         dict_result['telemetry'][0]['values']['hr'] = hr
 
