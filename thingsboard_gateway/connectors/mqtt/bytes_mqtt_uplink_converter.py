@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+import requests
 from re import findall
 from re import search
 
@@ -231,11 +232,13 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
 # 60s ttl
     if ttl_cache.has_key(device_name, tag='ttl') is False:
         ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
-        # todo
         # send ai data
         log.info('Now trigger AI--------')
-        ai_input = fetch_ecg(device_name)
         # log.info(ai_input)
+        ai_input = fetch_ecg(device_name)
+        if len(ai_input) == 15000:
+            log.warn('Upload 15000 AI INPUT')
+            upload_ecg(device_name, '8e23780e-bd5c-11ed-9824-0a1ffb605237', ai_input)
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
@@ -279,6 +282,24 @@ def calculate_hr(device_name):
     hr = hr_detector.detect(hr_input, 250)
     # log.info(device_name + ', HR: ' + str(hr))
     return hr
+
+
+def upload_ecg(device_name, tid, ecg_values):
+    url = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
+    body = {
+        "examinationId": tid,
+        "serialNumber": device_name,
+        "requestTimestamp": int(time.time()),
+        "requestSeconds": 60,
+        "ecgData": ecg_values
+    }
+    payload = json.dumps(body)
+    headers = {
+        'Content-Type': 'application/json',
+        'iomt-jwt': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzMTE5NDgsImlkIjoiem05Y283Z3NlZTZpYWU5IiwidHlwZSI6ImF1dGhSZWNvcmQifQ.t7-55JCUvvPaFlzJNqVlNA9eXEc7ukvj1zPWKQWc4rk'
+    }
+    response = requests.request("POST", url, headers=headers, data=payload)
+    log.info(response.text)
 
 
 class BytesMqttUplinkConverter(MqttUplinkConverter):
@@ -331,14 +352,6 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ',ecg: ' + field_ecg)
         queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
 
-        ai_input = fetch_ecg(device_name)
-        if len(ai_input) == 15000:
-            log.warn('write 15000 AI INPUT')
-            # log.warn(ai_input)
-            f = open(device_name + ".json", "w")
-            f.write(str(ai_input))
-            f.close()
-        # ---
         hr = calculate_hr(device_name)
         log.info(device_name + ', HR: ' + str(hr))
         dict_result['telemetry'][0]['values']['hr'] = hr
