@@ -38,11 +38,12 @@ types = yaml.safe_load(open(path_types_yml).read())
 
 log.info(structure, types)
 
+BUFFER_TIMEOUT = 80
 # key: name, value: cache
 # stream_buffer = dict()
 ecg_cache = SafeCache()
-ttl_cache = SimpleCache('ttl', 60)
-index_cache = SimpleCache('index', 60)
+ttl_cache = SimpleCache('ttl', BUFFER_TIMEOUT)
+index_cache = SimpleCache('index', BUFFER_TIMEOUT)
 
 
 def parse_data(expression, data):
@@ -213,14 +214,14 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
 
     # valid with 1m
     # 1min =  1x60
-    ecg_cache.ex_set(field_ts, field_ecg, timeout=1 * 60, tag=device_name)
+    ecg_cache.ex_set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
 
-    index_cache.ex_set(field_ts, field_ecg_index, timeout=1 * 60, tag=device_name)
-    log.info(index_cache)
+    index_cache.ex_set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
+    # log.info(index_cache)
     # 0: ts, 1: index, 2: device name
     index_list = filter(lambda d: d[2] == device_name, list(index_cache))
     index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
-    log.info(index_list)
+    # log.info(index_list)
     if len(index_list) > 1:
         last_ecg_index = int(index_list[1][1])
         expected_index = last_ecg_index + 960
@@ -229,12 +230,12 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
 
 # 60s ttl
     if ttl_cache.has_key(device_name, tag='ttl') is False:
-        ttl_cache.set(device_name, 'ttl', timeout=1*60, tag='ttl')
+        ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
         # todo
         # send ai data
         log.info('Now trigger AI--------')
         ai_input = fetch_ecg(device_name)
-        log.info(ai_input)
+        # log.info(ai_input)
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
@@ -247,7 +248,7 @@ def fetch_ecg(device_name):
     # 0: ts, 1: index, 2: device name
     ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
-    log.info(list(map(lambda d: d[0], ai_input)))
+    # log.info(list(map(lambda d: d[0], ai_input)))
     ai_input = list(map(lambda d: json.loads(d[1]), ai_input))
     ai_input = np.array(ai_input, float).flatten().tolist()
     # 1min =  250*60 = 15000
@@ -267,16 +268,16 @@ def calculate_hr(device_name):
     # log.info(list(hr_input))
     # hr_input tuple = (timestamp, ecg, device_name)
     hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
-    log.info(list(map(lambda d: d[0], hr_input)))
+    # log.info(list(map(lambda d: d[0], hr_input)))
     hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
     hr_input = np.array(hr_input, float).flatten().tolist()
     # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
     # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
-    log.info(len(hr_input))
+    # log.info(len(hr_input))
     # log.info(list(hr_input))
     # 250 samples/s
     hr = hr_detector.detect(hr_input, 250)
-    log.info(device_name + ', HR: ' + str(hr))
+    # log.info(device_name + ', HR: ' + str(hr))
     return hr
 
 
@@ -320,7 +321,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         # Extract the device name from the telemetry data
         dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
 
-        log.debug('Converted data: %s', dict_result)
+        # log.debug('Converted data: %s', dict_result)
 
         device_name = str(dict_result['deviceName'])
         field_ts = str(dict_result['telemetry'][0]['ts'])
@@ -330,7 +331,13 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ',ecg: ' + field_ecg)
         queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
 
-        fetch_ecg(device_name)
+        ai_input = fetch_ecg(device_name)
+        if len(ai_input) == 15000:
+            log.warn('write 15000 AI INPUT')
+            # log.warn(ai_input)
+            f = open(device_name + ".json", "w")
+            f.write(str(ai_input))
+            f.close()
         # ---
         hr = calculate_hr(device_name)
         log.info(device_name + ', HR: ' + str(hr))
