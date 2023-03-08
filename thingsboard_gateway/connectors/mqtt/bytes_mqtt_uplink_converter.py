@@ -231,8 +231,10 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
     if ttl_cache.has_key(device_name, tag='ttl') is False:
         ttl_cache.set(device_name, 'ttl', timeout=1*60, tag='ttl')
         # todo
-        ## send ai data
+        # send ai data
         log.info('Now trigger AI--------')
+        ai_input = fetch_ecg(device_name)
+        log.info(ai_input)
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
