@@ -13,7 +13,7 @@ from simplejson import dumps
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
-from cache3 import SafeCache
+from cache3 import SafeCache, SimpleCache
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 import numpy as np
 
@@ -41,7 +41,8 @@ log.info(structure, types)
 # key: name, value: cache
 # stream_buffer = dict()
 ecg_cache = SafeCache()
-ttl_cache = SafeCache()
+ttl_cache = SimpleCache('ttl', 60)
+index_cache = SimpleCache('index', 60)
 
 
 def parse_data(expression, data):
@@ -203,19 +204,35 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def queuing_ecg(device_name, start_ts, ecg_list):
+def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
     field_ts = str(start_ts)
     field_ecg = ecg_list
+    field_ecg_index = str(ecg_index)
+    # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list5760
+    log.info(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(len(ecg_list)))
 
     # valid with 1m
     # 1min =  1x60
     ecg_cache.ex_set(field_ts, field_ecg, timeout=1 * 60, tag=device_name)
 
-    # 60s ttl
+    index_cache.ex_set(field_ts, field_ecg_index, timeout=1 * 60, tag=device_name)
+    log.info(index_cache)
+    # 0: ts, 1: index, 2: device name
+    index_list = filter(lambda d: d[2] == device_name, list(index_cache))
+    index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
+    log.info(index_list)
+    if len(index_list) > 1:
+        last_ecg_index = int(index_list[1][1])
+        expected_index = last_ecg_index + 960
+        if expected_index != ecg_index:
+            log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
+
+# 60s ttl
     if ttl_cache.has_key(device_name, tag='ttl') is False:
         ttl_cache.set(device_name, 'ttl', timeout=1*60, tag='ttl')
         # todo
         ## send ai data
+        log.info('Now trigger AI--------')
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
@@ -225,6 +242,7 @@ def queuing_ecg(device_name, start_ts, ecg_list):
 
 
 def fetch_ecg(device_name):
+    # 0: ts, 1: index, 2: device name
     ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
     log.info(list(map(lambda d: d[0], ai_input)))
@@ -305,10 +323,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         device_name = str(dict_result['deviceName'])
         field_ts = str(dict_result['telemetry'][0]['ts'])
         field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
+        field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
 
-        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ',ecg: ' + field_ecg)
-        queuing_ecg(device_name, field_ts, field_ecg)
-        # debugging
+        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ',ecg: ' + field_ecg)
+        queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
+
         fetch_ecg(device_name)
         # ---
         hr = calculate_hr(device_name)

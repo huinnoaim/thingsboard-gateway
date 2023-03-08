@@ -30,7 +30,7 @@ def detect(signal, rate):
     # 샘플의 총 시간 -> 이걸 1분으로 만든다.
     duration_s = float(len(signal) / rate)
     hr = (peaks_count * 60) / duration_s
-    return hr
+    return round(hr)
 
 
 def _normalize(values, required_max=1.0):
