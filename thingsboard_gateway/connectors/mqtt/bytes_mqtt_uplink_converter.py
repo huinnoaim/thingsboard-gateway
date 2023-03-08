@@ -249,7 +249,7 @@ def fetch_ecg(device_name):
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
     log.info(list(map(lambda d: d[0], ai_input)))
     ai_input = list(map(lambda d: json.loads(d[1]), ai_input))
-    ai_input = np.array(ai_input, np.float).flatten().tolist()
+    ai_input = np.array(ai_input, float).flatten().tolist()
     # 1min =  250*60 = 15000
     ai_input = ai_input[:15000]
     # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
@@ -269,7 +269,7 @@ def calculate_hr(device_name):
     hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
     log.info(list(map(lambda d: d[0], hr_input)))
     hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
-    hr_input = np.array(hr_input, np.float).flatten().tolist()
+    hr_input = np.array(hr_input, float).flatten().tolist()
     # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
     # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
     log.info(len(hr_input))
