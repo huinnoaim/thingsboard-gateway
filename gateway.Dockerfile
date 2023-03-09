@@ -15,4 +15,4 @@ ENV PATH=/root/.local/bin:$PATH
 
 WORKDIR /app
 COPY thingsboard_gateway ./thingsboard_gateway
-ENTRYPOINT ["python", "-m", "thingsboard_gateway.tb_gateway"]
+ENTRYPOINT ["python", "-m", "thingsboard_gateway.main"]
