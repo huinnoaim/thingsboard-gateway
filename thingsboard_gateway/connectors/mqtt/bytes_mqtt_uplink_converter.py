@@ -238,7 +238,7 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
         ai_input = fetch_ecg(device_name)
         if len(ai_input) == 15000:
             log.warn('Upload 15000 AI INPUT')
-            upload_ecg(device_name, '8e23780e-bd5c-11ed-9824-0a1ffb605237', ai_input)
+            upload_ecg(device_name, ai_input)
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     log.info('TTL:' + str(ttl)) # TTL:588.2678360939026"
@@ -284,10 +284,9 @@ def calculate_hr(device_name):
     return hr
 
 
-def upload_ecg(device_name, tid, ecg_values):
+def upload_ecg(device_name, ecg_values):
     url = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
     body = {
-        "examinationId": tid,
         "serialNumber": device_name,
         "requestTimestamp": int(time.time()),
         "requestSeconds": 60,
@@ -296,7 +295,7 @@ def upload_ecg(device_name, tid, ecg_values):
     payload = json.dumps(body)
     headers = {
         'Content-Type': 'application/json',
-        'iomt-jwt': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzMTE5NDgsImlkIjoiem05Y283Z3NlZTZpYWU5IiwidHlwZSI6ImF1dGhSZWNvcmQifQ.t7-55JCUvvPaFlzJNqVlNA9eXEc7ukvj1zPWKQWc4rk'
+        'iomt-jwt': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
     }
     response = requests.request("POST", url, headers=headers, data=payload)
     log.info(response.text)
