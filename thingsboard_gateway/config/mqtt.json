@@ -58,7 +58,7 @@
   ],
   "attributeUpdates": [
     {
-      "retain": true,
+      "retain": false,
       "deviceNameFilter": "SmartMeter.*",
       "attributeFilter": "uploadFrequency",
       "topicExpression": "sensor/${deviceName}/${attributeKey}",
@@ -68,6 +68,7 @@
   "serverSideRpc": [
     {
       "deviceNameFilter": ".*",
+      "retain": false,
       "methodFilter": "echo",
       "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
       "responseTopicExpression": "sensor/${deviceName}/response/${methodName}/${requestId}",
@@ -76,6 +77,7 @@
     },
     {
       "deviceNameFilter": ".*",
+      "retain": false,
       "methodFilter": "no-reply",
       "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
       "valueExpression": "${params}"
