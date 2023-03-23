@@ -182,5 +182,5 @@ def _correct_peaks(signal, rate, peaks):
         if new_index != old_index:
             peaks[i] = new_index
         i += 1
-    log.info('peaks:' + str(len(peaks)))
+    # log.info('peaks:' + str(len(peaks)))
     return peaks

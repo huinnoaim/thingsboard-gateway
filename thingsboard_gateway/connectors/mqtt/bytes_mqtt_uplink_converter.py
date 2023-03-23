@@ -4,7 +4,8 @@ import os
 import re
 import time
 from timeit import default_timer as timer
-import requests
+import asyncio
+import aiohttp
 from re import findall
 from re import search
 
@@ -210,7 +211,7 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
+def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int, loop):
     field_ts = str(start_ts)
     field_ecg = ecg_list
     field_ecg_index = str(ecg_index)
@@ -232,13 +233,12 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int):
     # 60s ttl
     if ttl_cache.has_key(device_name, tag='ttl') is False:
         ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
-        # send ai data
         log.info('Now trigger AI--------')
         # log.info(ai_input)
         ai_input = fetch_ecg(device_name)
         if len(ai_input) == AI_INPUT_ECG_LENGTH:
-            log.warn('Upload 15000 AI INPUT')
-            upload_ecg(device_name, ai_input)
+            log.info('Upload 15000 AI INPUT')
+            loop.run_until_complete(upload_ecg(device_name, ai_input))
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
@@ -285,25 +285,30 @@ def calculate_hr(device_name):
     return hr
 
 
-def upload_ecg(device_name, ecg_values):
-    body = {
-        "serialNumber": device_name,
-        "requestTimestamp": int(time.time()),
-        "requestSeconds": 60,
-        "ecgData": ecg_values
-    }
-    payload = json.dumps(body)
-    headers = {
-        'Content-Type': 'application/json',
-        'iomt-jwt': IOMT_JWT
-    }
-    response = requests.request("POST", UPLOAD_URL, headers=headers, data=payload)
-    log.info(response.text)
+async def upload_ecg(device_name, ecg_values):
+    async with aiohttp.ClientSession() as session:
+        body = {
+            "serialNumber": device_name,
+            "requestTimestamp": int(time.time()),
+            "requestSeconds": 60,
+            "ecgData": ecg_values
+        }
+        payload = json.dumps(body)
+        headers = {
+            'Content-Type': 'application/json',
+            'iomt-jwt': IOMT_JWT
+        }
+        async with session.post(UPLOAD_URL, headers=headers, data=payload) as response:
+            print("Status:", response.status)
+            print("Content-type:", response.headers['content-type'])
+            html = await response.text()
+            print("Body:", html[:30], "...")
 
 
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
+        self.__loop = asyncio.new_event_loop()
 
     @property
     def config(self):
@@ -350,11 +355,10 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
         field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
 
-        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index))
-        queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
+        queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
 
         hr = calculate_hr(device_name)
-        log.info(device_name + ', HR: ' + str(hr))
+        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ', HR: ' + str(hr))
 
         # dict_result['telemetry'][0]['values']['hr'] = 0
         dict_result['telemetry'][0]['values']['hr'] = hr
