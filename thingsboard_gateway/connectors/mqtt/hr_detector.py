@@ -1,5 +1,6 @@
 import math
 from scipy import signal as scisig
+from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import log
 
 _WINDOW_SEC = 0.160
 _MIN_RR = 0.2  # compare with 0.33
@@ -25,7 +26,7 @@ def detect(signal, rate):
     max_rr_samples = round(_MAX_RR * rate)
     indices = _thresholding(integrated, min_rr_samples, max_rr_samples)
     indices = [x - samples_delay for x in indices]
-    print('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
+    log.info('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
     peaks_count = len(_correct_peaks(signal, rate, indices))
     # 샘플의 총 시간 -> 이걸 1분으로 만든다.
     duration_s = float(len(signal) / rate)
@@ -181,5 +182,5 @@ def _correct_peaks(signal, rate, peaks):
         if new_index != old_index:
             peaks[i] = new_index
         i += 1
-    print('peaks:' + str(len(peaks)))
+    log.info('peaks:' + str(len(peaks)))
     return peaks

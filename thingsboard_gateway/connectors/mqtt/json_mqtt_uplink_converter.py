@@ -24,13 +24,11 @@ from thingsboard_gateway.gateway.statistics_service import StatisticsService
 
 class JsonMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
-        log.info('JsonMqttUplinkConverter init')
         self.__config = config.get('converter')
         self.__send_data_on_change = self.__config.get(SEND_ON_CHANGE_PARAMETER)
 
     @property
     def config(self):
-        log.info('JsonMqttUplinkConverter config')
         return self.__config
 
     @StatisticsService.CollectStatistics(start_stat_type='receivedBytesFromDevices',
@@ -60,9 +58,6 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
 
         try:
             for datatype in datatypes:
-                print("=============")
-                print(datatype)
-                print("=============")
                 timestamp = data.get("ts", data.get("timestamp")) if datatype == 'timeseries' else None
                 dict_result[datatypes[datatype]] = []
                 for datatype_config in self.__config.get(datatype, []):

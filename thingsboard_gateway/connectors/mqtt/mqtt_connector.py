@@ -444,7 +444,7 @@ class MqttConnector(Connector, Thread):
                 self.__workers_thread_pool.remove(worker)
 
     def _on_message(self, client, userdata, message):
-        print(message.payload)
+        # print(message.payload)
         self._on_message_queue.put((client, userdata, message))
 
     def _process_on_message(self):
