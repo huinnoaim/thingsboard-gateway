@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+from timeit import default_timer as timer
 import requests
 from re import findall
 from re import search
@@ -18,6 +19,8 @@ from cache3 import SafeCache, SimpleCache
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 import numpy as np
 
+IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
+UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
 SENSOR_ECG_DATA_RECEIVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECEIVE_SUCCEED'
 PAYLOAD = {
     'PARAM': {
@@ -285,7 +288,6 @@ def calculate_hr(device_name):
 
 
 def upload_ecg(device_name, ecg_values):
-    url = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
     body = {
         "serialNumber": device_name,
         "requestTimestamp": int(time.time()),
@@ -295,23 +297,28 @@ def upload_ecg(device_name, ecg_values):
     payload = json.dumps(body)
     headers = {
         'Content-Type': 'application/json',
-        'iomt-jwt': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
+        'iomt-jwt': IOMT_JWT
     }
-    response = requests.request("POST", url, headers=headers, data=payload)
+    response = requests.request("POST", UPLOAD_URL, headers=headers, data=payload)
     log.info(response.text)
 
 
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
+        log.info('BytesMqttUplinkConverter init')
         self.__config = config.get('converter')
 
     @property
     def config(self):
+        log.info('BytesMqttUplinkConverter config')
         return self.__config
 
     @StatisticsService.CollectStatistics(start_stat_type='receivedBytesFromDevices',
                                          end_stat_type='convertedBytesFromDevice')
     def convert(self, topic, data):
+        log.info('BytesMqttUplinkConverter convert')
+        start_time = timer()
+
         # Define the datatypes to be parsed
         datatypes = {'timeseries': 'telemetry'}
 
@@ -332,11 +339,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
                         dict_result[key].append({'ts': ts, 'values': value})
                     else:
                         dict_result[key].append(value)
-
         except Exception as e:
             # Log the error and the config and data that caused the error
             log.error('Error in converter, for config: \n%s\n and message: \n%s\n', dumps(self.__config), str(data))
             log.exception(e)
+            return dict_result
 
         # Extract the device name from the telemetry data
         dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
@@ -348,11 +355,15 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
         field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
 
-        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ',ecg: ' + field_ecg)
+        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index))
         queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
 
         hr = calculate_hr(device_name)
         log.info(device_name + ', HR: ' + str(hr))
+
+        # dict_result['telemetry'][0]['values']['hr'] = 0
         dict_result['telemetry'][0]['values']['hr'] = hr
 
+        end_time = timer()
+        print('elapsed time: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
         return dict_result
