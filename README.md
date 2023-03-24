@@ -58,3 +58,4 @@ For processing data from devices you also can write custom converter, it will re
 ## Licenses
 
 This project is released under [Apache 2.0 License](./LICENSE).
+
