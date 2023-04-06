@@ -63,6 +63,10 @@
       "attributeFilter": "uploadFrequency",
       "topicExpression": "sensor/${deviceName}/${attributeKey}",
       "valueExpression": "{\"${attributeKey}\":\"${attributeValue}\"}"
+    },
+    {
+      "retain": false,
+      "topicFilter": "alarm/#"
     }
   ],
   "serverSideRpc": [
