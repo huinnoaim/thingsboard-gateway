@@ -12,6 +12,7 @@
   "mapping": [
     {
       "topicFilter": "devices/+/telemetry",
+      "retain": false,
       "converter": {
         "type": "bytes",
         "deviceNameTopicExpression": "(?<=devices/)(.*?)(?=/telemetry)",
