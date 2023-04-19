@@ -20,7 +20,7 @@ from cache3 import SafeCache, SimpleCache
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 import numpy as np
 
-HR_CALC_RANGE_SEC = 3 # 3sec
+HR_CALC_RANGE_SEC = 10 # 10sec
 AI_INPUT_ECG_LENGTH = 15000 # 1min
 IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
 UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
