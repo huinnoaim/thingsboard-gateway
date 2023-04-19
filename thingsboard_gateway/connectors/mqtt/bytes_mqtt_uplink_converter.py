@@ -20,6 +20,7 @@ from cache3 import SafeCache, SimpleCache
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 import numpy as np
 
+HR_CALC_RANGE_SEC = 3 # 3sec
 AI_INPUT_ECG_LENGTH = 15000 # 1min
 IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
 UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
@@ -263,11 +264,12 @@ def fetch_ecg(device_name):
     return ai_input
 
 
+
 def calculate_hr(device_name):
     # calculate HR
     # now_ms = int( time.time_ns() / 1000 )
-    now_ms = int(time.time())
-    hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_ms - 10)), list(ecg_cache))
+    now_sec = int(time.time())
+    hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_sec - HR_CALC_RANGE_SEC)), list(ecg_cache))
     # log.info(len(list(hr_input)))
     # log.info(list(hr_input))
     # hr_input tuple = (timestamp, ecg, device_name)
