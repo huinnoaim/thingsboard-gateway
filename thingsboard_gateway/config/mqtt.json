@@ -25,26 +25,38 @@
           }
         ]
       }
-    }
-  ],
-  "connectRequests": [
-    {
-      "topicFilter": "sensor/connect",
-      "deviceNameJsonExpression": "${SerialNumber}"
     },
     {
-      "topicFilter": "sensor/+/connect",
-      "deviceNameTopicExpression": "(?<=sensor\/)(.*?)(?=\/connect)"
-    }
-  ],
-  "disconnectRequests": [
-    {
-      "topicFilter": "sensor/disconnect",
-      "deviceNameJsonExpression": "${SerialNumber}"
+      "topicFilter": "policy/alarm_rules",
+      "converter": {
+        "type": "json",
+        "timeout": 60000,
+        "attributes": []
+      }
     },
     {
-      "topicFilter": "sensor/+/disconnect",
-      "deviceNameTopicExpression": "(?<=sensor\/)(.*?)(?=\/disconnect)"
+      "topicFilter": "policy/alarms",
+      "converter": {
+        "type": "json",
+        "timeout": 60000,
+        "attributes": []
+      }
+    },
+    {
+      "topicFilter": "policy/alarm",
+      "converter": {
+        "type": "json",
+        "timeout": 60000,
+        "alarms": []
+      }
+    },
+    {
+      "topicFilter": "policy/exams",
+      "converter": {
+        "type": "json",
+        "timeout": 60000,
+        "exams": []
+      }
     }
   ],
   "attributeRequests": [
@@ -56,36 +68,5 @@
       "topicExpression": "devices/${deviceName}/attrs",
       "valueExpression": "${attributeKey}: ${attributeValue}"
     }
-  ],
-  "attributeUpdates": [
-    {
-      "retain": false,
-      "deviceNameFilter": "SmartMeter.*",
-      "attributeFilter": "uploadFrequency",
-      "topicExpression": "sensor/${deviceName}/${attributeKey}",
-      "valueExpression": "{\"${attributeKey}\":\"${attributeValue}\"}"
-    },
-    {
-      "retain": false,
-      "topicFilter": "alarm/#"
-    }
-  ],
-  "serverSideRpc": [
-    {
-      "deviceNameFilter": ".*",
-      "retain": false,
-      "methodFilter": "echo",
-      "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
-      "responseTopicExpression": "sensor/${deviceName}/response/${methodName}/${requestId}",
-      "responseTimeout": 10000,
-      "valueExpression": "${params}"
-    },
-    {
-      "deviceNameFilter": ".*",
-      "retain": false,
-      "methodFilter": "no-reply",
-      "requestTopicExpression": "sensor/${deviceName}/request/${methodName}/${requestId}",
-      "valueExpression": "${params}"
-    }
-]
+  ]
 }

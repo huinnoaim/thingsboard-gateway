@@ -23,8 +23,9 @@ class AlarmManager(metaclass=Singleton):
     def __init__(self):
         self.id = random.randint(0, 10000)
         print(f"Instance ID: {self.id}")
-        self.__alarm_rules = []
+        self.__alarm_rules = [] # alarm_rule_id, exam_ids
         self.__alarms = []
+        self.__active_exam_sensors = []  # exam_id, thingboard_id
 
     def run(self):
         while True:
@@ -36,12 +37,19 @@ class AlarmManager(metaclass=Singleton):
     def set_alarm_rules(self, new_list):
         self.__alarm_rules = new_list
 
+    def get_active_exam_sensors(self):
+        return self.__active_exam_sensors
+
+    def set_active_exam_sensors(self, new_list):
+        self.__active_exam_sensors = new_list
+
     def get_alarms(self):
         return self.__alarms
 
     def set_alarms(self, new_list):
         self.__alarms = new_list
 
+    # todo: clear alarm 시 alarm 삭제
     def upsert_alarm(self, new_alarm):
         log.info('upsert_alarm')
         log.info(new_alarm)
@@ -56,4 +64,60 @@ class AlarmManager(metaclass=Singleton):
         else:
             # Add the new element to the array
             self.__alarms.append(new_alarm)
-            
+
+    def check_hr_alarm_limit(self, hr_alarm_limit, hr_value):
+        # hrLimit =  { \"RED\": { \"HIGH\": 150, \"LOW\": 40 }, \"YELLOW\": { \"HIGH\": 120, \"LOW\": 50 }
+        alarm_type = None
+        content = None
+        limit_content = ''
+        if hr_value == '——':
+            alarm_type = 'AlarmConst.TYPE.INOP'
+            content = 'AlarmConst.INOP.SENSOR.ECG_DEVICE.LEAD_OFF'
+        elif hr_alarm_limit['RED']['HIGH'] < hr_value:
+            alarm_type = 'AlarmConst.TYPE.RED'
+            content = 'AlarmConst.RED.HR_HIGH'
+            limit_content = f"{hr_value} > {hr_alarm_limit['RED']['HIGH']}"
+        elif hr_alarm_limit['RED']['LOW'] > hr_value:
+            alarm_type = 'AlarmConst.TYPE.RED'
+            content = 'AlarmConst.RED.HR_LOW'
+            limit_content = f"{hr_value} < {hr_alarm_limit['RED']['LOW']}"
+        elif hr_alarm_limit['YELLOW']['HIGH'] < hr_value:
+            alarm_type = 'AlarmConst.TYPE.YELLOW'
+            content = 'AlarmConst.YELLOW.HR_HIGH'
+            limit_content = f"{hr_value} > {hr_alarm_limit['YELLOW']['HIGH']}"
+        elif hr_alarm_limit['YELLOW']['LOW'] > hr_value:
+            alarm_type = 'AlarmConst.TYPE.YELLOW'
+            content = 'AlarmConst.YELLOW.HR_LOW'
+            limit_content = f"{hr_value} < {hr_alarm_limit['YELLOW']['LOW']}"
+
+        return {
+            'hrAlarmType': alarm_type,
+            'hrAlarmContent': content,
+            'hrLimitContent': limit_content,
+        }
+
+    def find_alarms_if_met_condition(self, dict_result):
+        log.info('check_alarm_condition')
+        serial_number = dict_result['deviceName']
+
+        # find exam_id from deviceName
+        # check prev alarm exist
+        # get rules per exam_id
+        # check rule
+        # trigger alarm
+
+        existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number), None)
+        if existing_exam is None:
+            return None
+
+        log.info(existing_exam)
+
+        matching_rules = [elem for elem in self.__alarm_rules if elem['exam_ids'] in ['*', existing_exam['exam_id']]]
+        log.info(matching_rules)
+
+        # loop per matching rules
+        hr = dict_result['telemetry'][0]['values']['hr']
+        # limits, pmc_volume, pm_volume, hr, spo2, temp, nbp_sys, nbp_dia, mean_arterial, signal_type
+        alarms = [elem for elem in matching_rules if self.check_hr_alarm_limit(elem, hr) is not None]
+
+        return alarms

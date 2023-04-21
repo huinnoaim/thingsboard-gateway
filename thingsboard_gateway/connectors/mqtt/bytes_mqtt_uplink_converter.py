@@ -274,8 +274,6 @@ def fetch_ecg(device_name):
     # log.info(len(ai_input))
     return ai_input
 
-
-
 def calculate_hr(device_name):
     # calculate HR
     # now_ms = int( time.time_ns() / 1000 )
@@ -379,6 +377,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             # dict_result['telemetry'][0]['values']['hr'] = 0
             dict_result['telemetry'][0]['values']['hr'] = hr
 
+        # check alarm
+        alarms = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
+
         end_time = timer()
         log.debug('<<elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
+        if len(alarms) > 0:
+            return alarms[0]
         return dict_result
