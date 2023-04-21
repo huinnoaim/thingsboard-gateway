@@ -138,43 +138,51 @@ def parse_payload(data):
     payload_slice = data.split(":")
     operation = payload_slice[0]
     params = payload_slice[1]
-
     params_slice = params.split(",")
     serial_number = params_slice[0].split("=")[1]
-    is_encrypted = params_slice[1]
-    ecg_data = params_slice[2]
-    ecg064data = [1, 2, 3, 4]
-    concat_ecg_data = []
 
-    if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
-        return None
+    # noti : spo2, bt, nbp
 
-    expected_packet_length = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"] * PAYLOAD["ECG_DATA"][
-        "BASE64_ECG_DATA_FRAGMENT_COUNT"]
+    if operation[5:] == 'bt':
+        value = params_slice[1]
+        data = {
+            'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
+            'serialNumber': serial_number,
+            'bt': value
+        }
+        return data
+    else :
+        is_encrypted = params_slice[1]
+        if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
+            return None
+        ecg_data = params_slice[2]
+        ecg064data = [1, 2, 3, 4]
+        concat_ecg_data = []
+        expected_packet_length = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"] * PAYLOAD["ECG_DATA"][
+            "BASE64_ECG_DATA_FRAGMENT_COUNT"]
 
-    if len(ecg_data) != expected_packet_length:
-        return None
+        if len(ecg_data) != expected_packet_length:
+            return None
 
-    fragment_count = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]
-    for i in range(fragment_count):
-        offset = i * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"]
-        slice_obj = slice(offset, offset + PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"])
-        fragment = ecg_data[slice_obj]
-        ecg064data[i] = parse_ecg(fragment)
-        concat_ecg_data += ecg064data[i]['ecgdata']
+        fragment_count = PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_COUNT"]
+        for i in range(fragment_count):
+            offset = i * PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"]
+            slice_obj = slice(offset, offset + PAYLOAD["ECG_DATA"]["BASE64_ECG_DATA_FRAGMENT_LENGTH"])
+            fragment = ecg_data[slice_obj]
+            ecg064data[i] = parse_ecg(fragment)
+            concat_ecg_data += ecg064data[i]['ecgdata']
 
-    ecg_index = ecg064data[0]['ecgdataindex']
-
-    data = {
-        'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
-        'serialNumber': serial_number,
-        'timestamp': ecg064data[0]['timestamp'],
-        'mataData': ecg064data[0]['metadata'],
-        'ecgDataIndex': ecg_index,
-        'metaDataType': ecg064data[0]['metadatatype'],
-        'ecgData': concat_ecg_data
-    }
-    return data
+        ecg_index = ecg064data[0]['ecgdataindex']
+        data = {
+            'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
+            'serialNumber': serial_number,
+            'timestamp': ecg064data[0]['timestamp'],
+            'mataData': ecg064data[0]['metadata'],
+            'ecgDataIndex': ecg_index,
+            'metaDataType': ecg064data[0]['metadatatype'],
+            'ecgData': concat_ecg_data
+        }
+        return data
 
 
 def parse_device_name(topic, data, config):
@@ -354,16 +362,18 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
 
         device_name = str(dict_result['deviceName'])
         field_ts = str(dict_result['telemetry'][0]['ts'])
-        field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
-        field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
 
-        queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
+        if 'ecgData' in dict_result['telemetry'][0]['values'] :
+            field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
+            field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
 
-        hr = calculate_hr(device_name)
-        log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ', HR: ' + str(hr))
+            queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
 
-        # dict_result['telemetry'][0]['values']['hr'] = 0
-        dict_result['telemetry'][0]['values']['hr'] = hr
+            hr = calculate_hr(device_name)
+            # log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ', HR: ' + str(hr))
+
+            # dict_result['telemetry'][0]['values']['hr'] = 0
+            dict_result['telemetry'][0]['values']['hr'] = hr
 
         end_time = timer()
         log.debug('<<elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
