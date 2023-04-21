@@ -154,6 +154,24 @@ def parse_payload(data):
             'bt': value
         }
         return data
+    elif operation[5:] == 'spo2':
+        value = params_slice[1]
+        data = {
+            'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
+            'serialNumber': serial_number,
+            'spo2': value
+        }
+        return data
+    elif operation[5:] == 'nbp':
+        data = {
+            'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
+            'serialNumber': serial_number,
+            'systolic': params_slice[1],
+            'diastolic': params_slice[2],
+            'meanArterialPressure': params_slice[3],
+            'timestamp': params_slice[4],
+        }
+        return data
     else :
         is_encrypted = params_slice[1]
         if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
@@ -381,7 +399,8 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         alarms = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
 
         end_time = timer()
+
         log.debug('<<elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
-        if len(alarms) > 0:
+        if alarms and len(alarms) > 0:
             return alarms[0]
         return dict_result
