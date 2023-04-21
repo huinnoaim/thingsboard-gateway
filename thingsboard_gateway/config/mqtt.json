@@ -3,7 +3,6 @@
     "name": "Default Local Broker",
     "host": "mosquitto.karina-huinno.tk",
     "port": 1883,
-    "clientId": "IoMT_gateway",
     "version": 5,
     "maxMessageNumberPerWorker": 10,
     "maxNumberOfWorkers": 100,
