@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+import numpy as np
 from timeit import default_timer as timer
 import asyncio
 import aiohttp
@@ -12,13 +13,15 @@ from re import search
 import yaml
 from bin_parser import BinReader
 from simplejson import dumps
+from cache3 import SafeCache, SimpleCache
 
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
-from cache3 import SafeCache, SimpleCache
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
-import numpy as np
+from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
+
+
 
 HR_CALC_RANGE_SEC = 10 # 10sec
 AI_INPUT_ECG_LENGTH = 15000 # 1min
@@ -319,6 +322,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
         self.__loop = asyncio.new_event_loop()
+        self.__alarm_manager = AlarmManager()
 
     @property
     def config(self):

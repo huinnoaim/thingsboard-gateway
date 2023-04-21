@@ -1,0 +1,58 @@
+[
+  {
+    "alarm_rule_id": "37b2a744-ddc6-11ed-b38d-ee038cb5937f",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":50},\"YELLOW\":{\"HIGH\":45,\"LOW\":40}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":50},\"YELLOW\":{\"HIGH\":52,\"LOW\":51}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":30,\"LOW\":20}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":150,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":55,\"LOW\":45}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":50,\"LOW\":45}},\"setting\":{\"nbpListType\":\"Mean\",\"sound\":{\"HR\":false,\"SpO2\":true,\"BT\":true,\"NBP\":false,\"level\":1}}}",
+    "exam_ids": "462f823a-d450-11ed-b477-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "1b79a578-d82b-11ed-a7d6-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":40},\"YELLOW\":{\"HIGH\":120,\"LOW\":50}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":81},\"YELLOW\":{\"HIGH\":100,\"LOW\":90}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":39,\"LOW\":36}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":160,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":90,\"LOW\":50}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":110,\"LOW\":60}},\"setting\":{\"sound\":{\"HR\":true,\"SpO2\":true,\"BT\":true,\"NBP\":true,\"level\":3},\"nbpListType\":\"Sys&Dia&Mean\"}}",
+    "exam_ids": "d952805a-d822-11ed-86ad-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "2fdfd258-d82b-11ed-8d99-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":25},\"YELLOW\":{\"HIGH\":120,\"LOW\":45}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":79},\"YELLOW\":{\"HIGH\":100,\"LOW\":90}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":39,\"LOW\":36}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":160,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":90,\"LOW\":50}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":110,\"LOW\":60}},\"setting\":{\"sound\":{\"HR\":true,\"SpO2\":true,\"BT\":true,\"NBP\":true,\"level\":3},\"nbpListType\":\"Sys&Dia&Mean\"}}",
+    "exam_ids": "d358c7a2-d775-11ed-bba6-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "3a69c952-d4db-11ed-a471-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":40},\"YELLOW\":{\"HIGH\":120,\"LOW\":82}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":80},\"YELLOW\":{\"HIGH\":99,\"LOW\":90}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":39,\"LOW\":36}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":160,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":90,\"LOW\":50}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":110,\"LOW\":60}},\"setting\":{\"sound\":{\"HR\":true,\"SpO2\":true,\"BT\":true,\"NBP\":true,\"level\":3},\"nbpListType\":\"Sys&Dia&Mean\"}}",
+    "exam_ids": "f3cdecba-d388-11ed-91c5-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "b46dabec-d521-11ed-911e-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":40},\"YELLOW\":{\"HIGH\":120,\"LOW\":50}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":80},\"YELLOW\":{\"HIGH\":100,\"LOW\":90}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":38.9,\"LOW\":36}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":160,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":90,\"LOW\":50}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":110,\"LOW\":60}},\"setting\":{\"sound\":{\"HR\":true,\"SpO2\":true,\"BT\":true,\"NBP\":true,\"level\":3},\"nbpListType\":\"Sys&Dia&Mean\"}}",
+    "exam_ids": "d65072d8-d505-11ed-b51c-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "6c272a7e-d383-11ed-8bcd-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{  \"hrLimit\": { \"RED\": { \"HIGH\": 150, \"LOW\": 40 }, \"YELLOW\": { \"HIGH\": 120, \"LOW\": 50 } },  \"spO2Limit\": { \"RED\": { \"HIGH\": null, \"LOW\": 80 }, \"YELLOW\": { \"HIGH\": 100, \"LOW\": 90 } },  \"btLimit\": { \"RED\": { \"HIGH\": null, \"LOW\": null }, \"YELLOW\": { \"HIGH\": 39, \"LOW\": 36 } },  \"nbpSLimit\": { \"RED\": { \"HIGH\": null, \"LOW\": null }, \"YELLOW\": { \"HIGH\": 160, \"LOW\": 90 } },  \"nbpDLimit\": { \"RED\": { \"HIGH\": null, \"LOW\": null }, \"YELLOW\": { \"HIGH\": 90, \"LOW\": 50 } },  \"nbpMLimit\": { \"RED\": { \"HIGH\": null, \"LOW\": null }, \"YELLOW\": { \"HIGH\": 110, \"LOW\": 60 } },  \"setting\": {    \"sound\": { \"HR\": true, \"SpO2\": true, \"BT\": true, \"NBP\": true, \"level\": 3 },    \"nbpListType\": \"Sys&Dia&Mean\"  }}",
+    "exam_ids": "*"
+  },
+  {
+    "alarm_rule_id": "25d556d4-ddd5-11ed-ad04-ee038cb5937f",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":150,\"LOW\":40},\"YELLOW\":{\"HIGH\":120,\"LOW\":50}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":80},\"YELLOW\":{\"HIGH\":99,\"LOW\":90}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":39,\"LOW\":36}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":160,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":90,\"LOW\":50}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":110,\"LOW\":60}},\"setting\":{\"sound\":{\"HR\":true,\"SpO2\":true,\"BT\":true,\"NBP\":true,\"level\":3},\"nbpListType\":\"Sys&Dia&Mean\"}}",
+    "exam_ids": "babcdf64-d1e7-11ed-90d8-0a1ffb605237"
+  },
+  {
+    "alarm_rule_id": "05e5de9c-d44e-11ed-8943-0a1ffb605237",
+    "name": "default",
+    "priority": 100,
+    "condition": "{\"hrLimit\":{\"RED\":{\"HIGH\":50,\"LOW\":35},\"YELLOW\":{\"HIGH\":45,\"LOW\":40}},\"spO2Limit\":{\"RED\":{\"HIGH\":null,\"LOW\":50},\"YELLOW\":{\"HIGH\":52,\"LOW\":51}},\"btLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":30,\"LOW\":20}},\"nbpSLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":150,\"LOW\":90}},\"nbpDLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":55,\"LOW\":45}},\"nbpMLimit\":{\"RED\":{\"HIGH\":null,\"LOW\":null},\"YELLOW\":{\"HIGH\":50,\"LOW\":45}},\"setting\":{\"nbpListType\":\"Mean\",\"sound\":{\"HR\":false,\"SpO2\":false,\"BT\":false,\"NBP\":false,\"level\":3}}}",
+    "exam_ids": "4d9c375e-b72f-11ed-906d-0a1ffb605237"
+  }
+]
