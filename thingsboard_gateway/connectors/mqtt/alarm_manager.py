@@ -1,11 +1,6 @@
 # Alarm Rule Engine and Manager
 
-import logging
-import json
-import time
 import random
-import threading
-from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 from thingsboard_gateway.connectors.connector import Connector, log
 
 
@@ -26,10 +21,6 @@ class AlarmManager(metaclass=Singleton):
         self.__alarm_rules = [] # alarm_rule_id, exam_ids
         self.__alarms = []
         self.__active_exam_sensors = []  # exam_id, thingboard_id
-
-    def run(self):
-        while True:
-            time.sleep(1)
 
     def get_alarm_rules(self):
         return self.__alarm_rules
@@ -90,34 +81,41 @@ class AlarmManager(metaclass=Singleton):
             content = 'AlarmConst.YELLOW.HR_LOW'
             limit_content = f"{hr_value} < {hr_alarm_limit['YELLOW']['LOW']}"
 
-        return {
+        result = {
             'hrAlarmType': alarm_type,
             'hrAlarmContent': content,
             'hrLimitContent': limit_content,
         }
+        log.info(result)
+        return result
 
     def find_alarms_if_met_condition(self, dict_result):
         log.info('check_alarm_condition')
-        serial_number = dict_result['deviceName']
 
-        # find exam_id from deviceName
-        # check prev alarm exist
-        # get rules per exam_id
-        # check rule
-        # trigger alarm
+        telemetry_data = dict_result.get('telemetry', [{}])
+        hr = telemetry_data[0].get('values', {}).get('hr', None)
+        if hr is None:
+            return None
+
+        serial_number = dict_result['deviceName']
 
         existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number), None)
         if existing_exam is None:
+            log.debug('no existing_exam')
             return None
 
-        log.info(existing_exam)
+        log.debug(existing_exam)
 
         matching_rules = [elem for elem in self.__alarm_rules if elem['exam_ids'] in ['*', existing_exam['exam_id']]]
         log.info(matching_rules)
 
         # loop per matching rules
-        hr = dict_result['telemetry'][0]['values']['hr']
         # limits, pmc_volume, pm_volume, hr, spo2, temp, nbp_sys, nbp_dia, mean_arterial, signal_type
-        alarms = [elem for elem in matching_rules if self.check_hr_alarm_limit(elem, hr) is not None]
+        alarm = next((elem for elem in matching_rules if self.check_hr_alarm_limit(elem, hr) is not None), None)
+        if alarm is not None:
+            alarm['hospital_id'] = existing_exam['hospital_id']
+            alarm['ward_id'] = existing_exam['ward_id']
+            alarm['room_id'] = existing_exam['room_id']
+            alarm['bed_id'] = existing_exam['bed_id']
 
-        return alarms
+        return alarm

@@ -172,7 +172,7 @@ def parse_payload(data):
             'timestamp': params_slice[4],
         }
         return data
-    else :
+    else:
         is_encrypted = params_slice[1]
         if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
             return None
@@ -396,11 +396,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             dict_result['telemetry'][0]['values']['hr'] = hr
 
         # check alarm
-        alarms = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
+        alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
+        if alarm is not None:
+            log.info(alarm)
+            dict_result['alarm'] = alarm
 
         end_time = timer()
-
         log.debug('<<elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
-        if alarms and len(alarms) > 0:
-            return alarms[0]
         return dict_result
