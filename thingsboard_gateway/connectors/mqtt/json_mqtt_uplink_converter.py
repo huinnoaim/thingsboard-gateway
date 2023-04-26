@@ -46,13 +46,12 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
                 self.__alarm_manager.set_alarms(data)
             if topic == 'noti/exams':
                 self.__alarm_manager.set_active_exam_sensors(data)
-            # [{'alarm_id': 'a46c6382-bcb7-11ed-8c57-0a1ffb605350', 'type': 'High SpO2 Alarm', 'exam_id': '4d9c375e-b72f-11ed-906d-0a1ffb605237', 'sender_id': 'n8n_workflow', 'limits': '220>200', 'pmc_volume': 5, 'pm_volume': 1, 'hr': '90', 'spo2': '90', 'temp': '36.5', 'nbp_sys': '120', 'nbp_dia': '80', 'mean_arterial': '70', 'signal_type': 'SpO2'}]"
         else:
+            if topic == 'noti/alarm_rule':
+                self.__alarm_manager.upsert_alarm_rule(data)
             if topic == 'noti/alarm':
                 self.__alarm_manager.upsert_alarm(data)
-
-        # log.info(self.__alarm_manager.get_alarms())
-        # log.info(self.__alarm_manager.get_alarm_rules())
-        # log.info(self.__alarm_manager.get_active_exam_sensors())
+            if topic == 'noti/exam':
+                self.__alarm_manager.upsert_active_exam_sensor(data)
         return None
 

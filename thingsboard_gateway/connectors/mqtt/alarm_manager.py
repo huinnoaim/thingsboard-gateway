@@ -40,7 +40,30 @@ class AlarmManager(metaclass=Singleton):
     def set_alarms(self, new_list):
         self.__alarms = new_list
 
-    # todo: clear alarm 시 alarm 삭제
+    def upsert_alarm_rule(self, new_alarm_rule):
+        log.info('upsert_alarm_rule')
+        log.info(new_alarm_rule)
+
+        # Check if the element already exists in the array
+        existing_element = next((elem for elem in self.__alarm_ruless if elem['id'] == new_alarm_rule['id']), None)
+
+        if existing_element is not None:
+            existing_element.update(new_alarm_rule)
+        else:
+            self.__alarms.append(new_alarm_rule)
+
+    def upsert_active_exam_sensor(self, new_active_exam_sensor):
+        log.info('upsert_active_exam_sensor')
+        log.info(new_active_exam_sensor)
+
+        # Check if the element already exists in the array
+        existing_element = next((elem for elem in self.__active_exam_sensorss if elem['serial_number'] == new_active_exam_sensor['serial_number']), None)
+
+        if existing_element is not None:
+            existing_element.update(new_active_exam_sensor)
+        else:
+            self.__alarms.append(new_active_exam_sensor)            
+
     def upsert_alarm(self, new_alarm):
         log.info('upsert_alarm')
         log.info(new_alarm)
@@ -50,10 +73,8 @@ class AlarmManager(metaclass=Singleton):
         existing_element = next((elem for elem in self.__alarms if elem['alarm_id'] == new_alarm['alarm_id']), None)
 
         if existing_element is not None:
-            # Update the existing element with the new values
             existing_element.update(new_alarm)
         else:
-            # Add the new element to the array
             self.__alarms.append(new_alarm)
 
     def check_hr_alarm_limit(self, hr_alarm_limit, hr_value):
