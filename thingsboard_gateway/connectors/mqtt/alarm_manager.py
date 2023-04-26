@@ -115,7 +115,6 @@ class AlarmManager(metaclass=Singleton):
         if alarm is not None:
             alarm['hospital_id'] = existing_exam['hospital_id']
             alarm['ward_id'] = existing_exam['ward_id']
-            alarm['room_id'] = existing_exam['room_id']
-            alarm['bed_id'] = existing_exam['bed_id']
+            alarm['exam_id'] = existing_exam['exam_id']
 
         return alarm

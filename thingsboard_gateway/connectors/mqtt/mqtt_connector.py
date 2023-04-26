@@ -838,10 +838,10 @@ class MqttConnector(Connector, Thread):
 
                     if converted_data and converted_data.get('alarm'):
                         alarm = converted_data.get('alarm')
-                        if alarm.get('hospital_id') and alarm.get('ward_id') and alarm.get('room_id') and alarm.get('bed_id'):
+                        if alarm.get('hospital_id') and alarm.get('ward_id') and alarm.get('exam_id'):
                             log.info('trigger ALARM')
-                            # serial_number, hospital_id, ward_id, room_id, bed_id
-                            topic_name = f'alarms/{alarm.hospital_id}/{alarm.ward_id}/{alarm.room_id}/{alarm.bed_id}'
+                            # serial_number, hospital_id, ward_id, exam_id
+                            topic_name = f'alarms/{alarm.hospital_id}/{alarm.ward_id}/{alarm.exam_id}'
                             self._client.publish(topic_name, converted_data)
 
                     self.in_progress = False
