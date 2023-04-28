@@ -9,6 +9,7 @@ from thingsboard_gateway.connectors.connector import Connector, log
 TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
 regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0-9a-f]{12}$")
 
+
 async def trigger_http(url_path, body):
     async with aiohttp.ClientSession() as session:
         payload = body
@@ -20,6 +21,7 @@ async def trigger_http(url_path, body):
             print("Content-type:", response.headers['content-type'])
             html = await response.text()
             print("Body:", html[:30], "...")
+
 
 class Singleton(type):
     _instances = {}
@@ -35,7 +37,8 @@ class AlarmManager(metaclass=Singleton):
     def __init__(self):
         self.id = random.randint(0, 10000)
         print(f"Instance ID: {self.id}")
-        self.__alarm_rules = [] # alarm_rule_id, exam_ids
+        self.__loop = asyncio.new_event_loop()
+        self.__alarm_rules = []  # alarm_rule_id, exam_ids
         self.__alarms = []
         self.__active_exam_sensors = []  # exam_id, thingboard_id
 
@@ -51,13 +54,13 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         alarm_id = new_alarm.get('id')
-        if not regex_uuid.match(alarm_id):
-            log.warn('invalid alarm id: ' + alarm_id)
-            return self
+        # if not regex_uuid.match(alarm_id):
+        #     log.warn('invalid alarm id: ' + alarm_id)
+        #     return self
         exam_id = new_alarm.get('exam_id')
-        if not regex_uuid.match(exam_id):
-            log.warn('invalid exam_id: ' + exam_id)
-            return self
+        # if not regex_uuid.match(exam_id):
+        #     log.warn('invalid exam_id: ' + exam_id)
+        #     return self
         originator = new_alarm.get('originator')
         if originator != 'pm':
             log.debug('ignore: originator is not pm' + originator)
@@ -70,7 +73,8 @@ class AlarmManager(metaclass=Singleton):
                 return self
         # if status == 'ACTIVE_UNACK':
         # if status == 'CLEARED_ACK':
-        trigger_http('alarms/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm)
+        self.__loop.run_until_complete(trigger_http('alarms', new_alarm))
+
 
     def get_alarm_rules(self):
         return self.__alarm_rules
@@ -111,7 +115,7 @@ class AlarmManager(metaclass=Singleton):
             existing_element.update(new_alarm_rule)
         else:
             self.__alarms.append(new_alarm_rule)
-        trigger_http('alarm_rule_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm_rule)
+        trigger_http('alarm_rule_changed')
 
     def upsert_active_exam_sensor(self, topic, new_active_exam_sensor):
         log.info('upsert_active_exam_sensor')
@@ -128,13 +132,14 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == new_active_exam_sensor['serial_number']), None)
+        existing_element = next((elem for elem in self.__active_exam_sensors if
+                                 elem['serial_number'] == new_active_exam_sensor['serial_number']), None)
 
         if existing_element is not None:
             existing_element.update(new_active_exam_sensor)
         else:
             self.__alarms.append(new_active_exam_sensor)
-        trigger_http('exam_sensor_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_active_exam_sensor)
+        self.__loop.run_until_complete(trigger_http('exam_sensor_changed', new_active_exam_sensor))
 
     def upsert_alarm(self, topic, new_alarm):
         log.info('upsert_alarm')
@@ -160,7 +165,7 @@ class AlarmManager(metaclass=Singleton):
             existing_element.update(new_alarm)
         else:
             self.__alarms.append(new_alarm)
-        trigger_http('alarm_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm)
+        trigger_http('alarm_changed', new_alarm)
 
     def check_hr_alarm_limit(self, hr_alarm_limit, hr_value):
         # hrLimit =  { \"RED\": { \"HIGH\": 150, \"LOW\": 40 }, \"YELLOW\": { \"HIGH\": 120, \"LOW\": 50 }
@@ -205,7 +210,8 @@ class AlarmManager(metaclass=Singleton):
 
         serial_number = dict_result['deviceName']
 
-        existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number), None)
+        existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number),
+                             None)
         if existing_exam is None:
             log.debug('no existing_exam')
             return None

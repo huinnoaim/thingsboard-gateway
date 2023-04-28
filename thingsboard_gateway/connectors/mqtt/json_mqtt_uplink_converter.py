@@ -11,7 +11,8 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
-
+import asyncio
+import aiohttp
 from thingsboard_gateway.gateway.constants import SEND_ON_CHANGE_PARAMETER
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
@@ -21,6 +22,7 @@ from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 class JsonMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
+        self.__loop = asyncio.new_event_loop()
         self.__send_data_on_change = self.__config.get(SEND_ON_CHANGE_PARAMETER)
         self.__alarm_manager = AlarmManager()
 
