@@ -26,7 +26,18 @@
       }
     },
     {
-      "topicFilter": "policy/alarm_rules",
+      "topicFilter": "alarms/#",
+      "retain": false,
+      "converter": {
+        "type": "json",
+        "alarmNameTopicExpression": "(?<=alarms/)(.*?)(?=/)(.*?)(?=/)(.*?)(?=/)",
+        "timeout": 60000,
+        "attributes": []
+      }
+    },
+    {
+      "topicFilter": "noti/alarm_rules/#",
+      "retain": false,
       "converter": {
         "type": "json",
         "timeout": 60000,
@@ -34,7 +45,8 @@
       }
     },
     {
-      "topicFilter": "policy/alarms",
+      "topicFilter": "noti/alarms/#",
+      "retain": false,
       "converter": {
         "type": "json",
         "timeout": 60000,
@@ -42,7 +54,8 @@
       }
     },
     {
-      "topicFilter": "policy/alarm",
+      "topicFilter": "noti/alarm/#",
+      "retain": false,
       "converter": {
         "type": "json",
         "timeout": 60000,
@@ -50,7 +63,8 @@
       }
     },
     {
-      "topicFilter": "policy/exams",
+      "topicFilter": "noti/exams/#",
+      "retain": false,
       "converter": {
         "type": "json",
         "timeout": 60000,

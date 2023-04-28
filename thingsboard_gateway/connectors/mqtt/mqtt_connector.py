@@ -13,7 +13,6 @@
 #     limitations under the License.
 
 import random
-import ssl
 import string
 from queue import Queue
 from re import fullmatch, match, search
@@ -40,7 +39,6 @@ except ImportError:
 
 from paho.mqtt.client import MQTTv31, MQTTv311, MQTTv5
 
-
 MQTT_VERSIONS = {
     3: MQTTv31,
     4: MQTTv311,
@@ -56,9 +54,9 @@ RESULT_CODES_V3 = {
 }
 
 RESULT_CODES_V5 = {
-    4:   "Disconnect with Will Message",
-    16:  "No matching subscribers",
-    17:  "No subscription existed",
+    4: "Disconnect with Will Message",
+    16: "No matching subscribers",
+    17: "No subscription existed",
     128: "Unspecified error",
     129: "Malformed Packet",
     130: "Protocol Error",
@@ -112,7 +110,8 @@ class MqttConnector(Connector, Thread):
         # Extract main sections from configuration ---------------------------------------------------------------------
         self.__broker = config.get('broker')
         self.__send_data_only_on_change = self.__broker.get(SEND_ON_CHANGE_PARAMETER, DEFAULT_SEND_ON_CHANGE_VALUE)
-        self.__send_data_only_on_change_ttl = self.__broker.get(SEND_ON_CHANGE_TTL_PARAMETER, DEFAULT_SEND_ON_CHANGE_INFINITE_TTL_VALUE)
+        self.__send_data_only_on_change_ttl = self.__broker.get(SEND_ON_CHANGE_TTL_PARAMETER,
+                                                                DEFAULT_SEND_ON_CHANGE_INFINITE_TTL_VALUE)
 
         # for sendDataOnlyOnChange param
         self.__topic_content = {}
@@ -471,8 +470,7 @@ class MqttConnector(Connector, Thread):
                         for converter in available_converters:
                             try:
                                 # check if data is equal
-                                if converter.config.get('sendDataOnlyOnChange', False) and self.__topic_content.get(
-                                        message.topic) == content:
+                                if converter.config.get('sendDataOnlyOnChange', False) and self.__topic_content.get(message.topic) == content:
                                     request_handled = True
                                     continue
 
@@ -514,8 +512,8 @@ class MqttConnector(Connector, Thread):
                         if handler.get("deviceTypeTopicExpression"):
                             device_type_match = search(handler["deviceTypeTopicExpression"], message.topic)
                             found_device_type = device_type_match.group(0) if device_type_match is not None else \
-                            handler[
-                                "deviceTypeTopicExpression"]
+                                handler[
+                                    "deviceTypeTopicExpression"]
                         elif handler.get("deviceTypeJsonExpression"):
                             found_device_type = TBUtility.get_value(handler["deviceTypeJsonExpression"], content)
 
@@ -717,7 +715,7 @@ class MqttConnector(Connector, Thread):
 
             timeout = time() * 1000 + rpc_config.get("responseTimeout")
 
-            # Start listenting on the response topic
+            # Start listening on the response topic
             self.__log.info("Subscribing to: %s", expected_response_topic)
             self.__subscribe(expected_response_topic, rpc_config.get("responseTopicQoS", 1))
 
@@ -798,9 +796,7 @@ class MqttConnector(Connector, Thread):
         else:
             # Check whether one of my RPC handlers can handle this request
             for rpc_config in self.__server_side_rpc:
-                if search(rpc_config["deviceNameFilter"], content["device"]) \
-                        and search(rpc_config["methodFilter"], rpc_method) is not None:
-
+                if search(rpc_config["deviceNameFilter"], content["device"]) and search(rpc_config["methodFilter"], rpc_method) is not None:
                     return self.__process_rpc_request(content, rpc_config)
 
             self.__log.error("RPC not handled: %s", content)

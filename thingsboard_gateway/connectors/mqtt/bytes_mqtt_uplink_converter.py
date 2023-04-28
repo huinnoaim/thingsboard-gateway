@@ -21,10 +21,8 @@ from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 
-
-
-HR_CALC_RANGE_SEC = 10 # 10sec
-AI_INPUT_ECG_LENGTH = 15000 # 1min
+HR_CALC_RANGE_SEC = 10  # 10sec
+AI_INPUT_ECG_LENGTH = 15000  # 1min
 IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
 UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
 SENSOR_ECG_DATA_RECEIVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECEIVE_SUCCEED'
@@ -241,7 +239,7 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int, loop):
+def queuing_ecg(device_name, start_ts: int, ecg_list, ecg_index: int, loop):
     field_ts = str(start_ts)
     field_ecg = ecg_list
     field_ecg_index = str(ecg_index)
@@ -272,7 +270,8 @@ def queuing_ecg(device_name, start_ts, ecg_list, ecg_index: int, loop):
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
-    log.info(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(len(ecg_list)) + ',TTL:' + str(ttl))
+    log.info(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
+        len(ecg_list)) + ',TTL:' + str(ttl))
     # log.info(list(ecg_cache))
     # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
     # log.info(len(list(ecg_cache)))
@@ -291,6 +290,7 @@ def fetch_ecg(device_name):
     log.info('ECG cache value length ' + device_name + ' : ' + str(len(list(ai_input))))
     # log.info(len(ai_input))
     return ai_input
+
 
 def calculate_hr(device_name):
     # calculate HR
@@ -381,11 +381,11 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         # log.debug('Converted data: %s', dict_result)
 
         device_name = str(dict_result['deviceName'])
-        field_ts = str(dict_result['telemetry'][0]['ts'])
+        field_ts = int(dict_result['telemetry'][0]['ts'])
 
-        if 'ecgData' in dict_result['telemetry'][0]['values'] :
+        if 'ecgData' in dict_result['telemetry'][0]['values']:
             field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
-            field_ecg_index = dict_result['telemetry'][0]['values']['ecgDataIndex']
+            field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
 
             queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
 

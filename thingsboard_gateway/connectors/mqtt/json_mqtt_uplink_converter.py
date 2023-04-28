@@ -12,10 +12,6 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-from re import search
-
-from simplejson import dumps
-
 from thingsboard_gateway.gateway.constants import SEND_ON_CHANGE_PARAMETER
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
@@ -39,7 +35,15 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
         if isinstance(data, list):
             # topic: 'noti/alarm_rules',
             # {'alarm_rule_id': '1b79a578-d82b-11ed-a7d6-0a1ffb605237',
-            # 'name': 'default', 'priority': 100, 'condition': '{"hrLimit":{"RED":{"HIGH":150,"LOW":40},"YELLOW":{"HIGH":120,"LOW":50}},"spO2Limit":{"RED":{"HIGH":null,"LOW":81},"YELLOW":{"HIGH":100,"LOW":90}},"btLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":39,"LOW":36}},"nbpSLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":160,"LOW":90}},"nbpDLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":90,"LOW":50}},"nbpMLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":110,"LOW":60}},"setting":{"sound":{"HR":true,"SpO2":true,"BT":true,"NBP":true,"level":3},"nbpListType":"Sys&Dia&Mean"}}', 'exam_ids': 'd952805a-d822-11ed-86ad-0a1ffb605237'})
+            # 'name': 'default', 'priority': 100, 'condition': '{"hrLimit":{"RED":{"HIGH":150,"LOW":40},
+            # "YELLOW":{"HIGH":120,"LOW":50}},"spO2Limit":{"RED":{"HIGH":null,"LOW":81},
+            # "YELLOW":{"HIGH":100,"LOW":90}},"btLimit":{"RED":{"HIGH":null,"LOW":null},
+            # "YELLOW":{"HIGH":39,"LOW":36}},"nbpSLimit":{"RED":{"HIGH":null,"LOW":null},
+            # "YELLOW":{"HIGH":160,"LOW":90}},"nbpDLimit":{"RED":{"HIGH":null,"LOW":null},
+            # "YELLOW":{"HIGH":90,"LOW":50}},"nbpMLimit":{"RED":{"HIGH":null,"LOW":null},
+            # "YELLOW":{"HIGH":110,"LOW":60}},"setting":{"sound":{"HR":true,"SpO2":true,"BT":true,
+            # "NBP":true,"level":3},"nbpListType":"Sys&Dia&Mean"}}',
+            # 'exam_ids': 'd952805a-d822-11ed-86ad-0a1ffb605237'})
             if topic == 'noti/alarm_rules':
                 self.__alarm_manager.set_alarm_rules(data)
             if topic == 'noti/alarms':
@@ -47,11 +51,12 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
             if topic == 'noti/exams':
                 self.__alarm_manager.set_active_exam_sensors(data)
         else:
+            if topic.startswith('alarms'):
+                self.__alarm_manager.handle_alarm(topic, data)
             if topic == 'noti/alarm_rule':
-                self.__alarm_manager.upsert_alarm_rule(data)
+                self.__alarm_manager.upsert_alarm_rule(topic, data)
             if topic == 'noti/alarm':
                 self.__alarm_manager.upsert_alarm(data)
             if topic == 'noti/exam':
                 self.__alarm_manager.upsert_active_exam_sensor(data)
         return None
-

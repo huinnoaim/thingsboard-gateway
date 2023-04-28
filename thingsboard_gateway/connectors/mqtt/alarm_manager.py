@@ -1,8 +1,25 @@
 # Alarm Rule Engine and Manager
 
+import re
 import random
+import asyncio
+import aiohttp
 from thingsboard_gateway.connectors.connector import Connector, log
 
+TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
+regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0-9a-f]{12}$")
+
+async def trigger_http(url_path, body):
+    async with aiohttp.ClientSession() as session:
+        payload = body
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        async with session.post(TRIGGER_BASE_URL + url_path, headers=headers, data=payload) as response:
+            print("Status:", response.status)
+            print("Content-type:", response.headers['content-type'])
+            html = await response.text()
+            print("Body:", html[:30], "...")
 
 class Singleton(type):
     _instances = {}
@@ -22,6 +39,39 @@ class AlarmManager(metaclass=Singleton):
         self.__alarms = []
         self.__active_exam_sensors = []  # exam_id, thingboard_id
 
+    def handle_alarm(self, topic, new_alarm):
+        match = re.match(r'^alarms/(\d+)/([^/]+)/([^/]+)$', topic)
+        if match is None:
+            log.error('Invalid alarm URL: {}'.format(topic))
+            return self
+
+        hospital_id, ward_id, exam_id = match.groups()
+        if hospital_id is None or ward_id is None or exam_id is None:
+            log.error('invalid topic requested:' + topic)
+            return self
+
+        alarm_id = new_alarm.get('id')
+        if not regex_uuid.match(alarm_id):
+            log.warn('invalid alarm id: ' + alarm_id)
+            return self
+        exam_id = new_alarm.get('exam_id')
+        if not regex_uuid.match(exam_id):
+            log.warn('invalid exam_id: ' + exam_id)
+            return self
+        originator = new_alarm.get('originator')
+        if originator != 'pm':
+            log.debug('ignore: originator is not pm' + originator)
+            return self
+        status = new_alarm.get('status')
+        log.debug('status:' + status)
+        if status == 'ACTIVE_ACK':
+            if new_alarm.get('checkFromPmc'):
+                log.debug('ignore checked from PMC')
+                return self
+        # if status == 'ACTIVE_UNACK':
+        # if status == 'CLEARED_ACK':
+        trigger_http('alarms/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm)
+
     def get_alarm_rules(self):
         return self.__alarm_rules
 
@@ -40,34 +90,68 @@ class AlarmManager(metaclass=Singleton):
     def set_alarms(self, new_list):
         self.__alarms = new_list
 
-    def upsert_alarm_rule(self, new_alarm_rule):
+    def upsert_alarm_rule(self, topic, new_alarm_rule):
         log.info('upsert_alarm_rule')
         log.info(new_alarm_rule)
 
+        match = re.match(r'^noti/alarm_rules/(\d+)/([^/]+)/([^/]+)$', topic)
+        if match is None:
+            log.error('Invalid alarm URL: {}'.format(topic))
+            return self
+
+        hospital_id, ward_id, exam_id = match.groups()
+        if hospital_id is None or ward_id is None or exam_id is None:
+            log.error('invalid topic requested:' + topic)
+            return self
+
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__alarm_ruless if elem['id'] == new_alarm_rule['id']), None)
+        existing_element = next((elem for elem in self.__alarm_rules if elem['id'] == new_alarm_rule['id']), None)
 
         if existing_element is not None:
             existing_element.update(new_alarm_rule)
         else:
             self.__alarms.append(new_alarm_rule)
+        trigger_http('alarm_rule_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm_rule)
 
-    def upsert_active_exam_sensor(self, new_active_exam_sensor):
+    def upsert_active_exam_sensor(self, topic, new_active_exam_sensor):
         log.info('upsert_active_exam_sensor')
         log.info(new_active_exam_sensor)
 
+        match = re.match(r'^noti/exam_sensors/(\d+)/([^/]+)/([^/]+)$', topic)
+        if match is None:
+            log.error('Invalid alarm URL: {}'.format(topic))
+            return self
+
+        hospital_id, ward_id, exam_id = match.groups()
+        if hospital_id is None or ward_id is None or exam_id is None:
+            log.error('invalid topic requested:' + topic)
+            return self
+
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__active_exam_sensorss if elem['serial_number'] == new_active_exam_sensor['serial_number']), None)
+        existing_element = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == new_active_exam_sensor['serial_number']), None)
 
         if existing_element is not None:
             existing_element.update(new_active_exam_sensor)
         else:
-            self.__alarms.append(new_active_exam_sensor)            
+            self.__alarms.append(new_active_exam_sensor)
+        trigger_http('exam_sensor_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_active_exam_sensor)
 
-    def upsert_alarm(self, new_alarm):
+    def upsert_alarm(self, topic, new_alarm):
         log.info('upsert_alarm')
         log.info(new_alarm)
-        # {'alarm_id': 'a46c6382-bcb7-11ed-8c58-0a1ffb605351', 'type': 'Low SpO2 Alarm', 'exam_id': '4d9c375e-b72f-11ed-906d-0a1ffb605238', 'sender_id': 'n8n_workflow', 'limits': '180>160', 'pmc_volume': 6, 'pm_volume': 2, 'hr': '80', 'spo2': '80', 'temp': '36.0', 'nbp_sys': '110', 'nbp_dia': '70', 'mean_arterial': '65', 'signal_type': 'SpO2'}
+        # {'alarm_id': 'a46c6382-bcb7-11ed-8c58-0a1ffb605351', 'type': 'Low SpO2 Alarm',
+        # 'exam_id': '4d9c375e-b72f-11ed-906d-0a1ffb605238', 'sender_id': 'n8n_workflow',
+        # 'limits': '180>160', 'pmc_volume': 6, 'pm_volume': 2, 'hr': '80', 'spo2': '80', 'temp': '36.0',
+        # 'nbp_sys': '110', 'nbp_dia': '70', 'mean_arterial': '65', 'signal_type': 'SpO2'}
+        match = re.match(r'^noti/alarm/(\d+)/([^/]+)/([^/]+)$', topic)
+        if match is None:
+            log.error('Invalid alarm URL: {}'.format(topic))
+            return self
+
+        hospital_id, ward_id, exam_id = match.groups()
+        if hospital_id is None or ward_id is None or exam_id is None:
+            log.error('invalid topic requested:' + topic)
+            return self
 
         # Check if the element already exists in the array
         existing_element = next((elem for elem in self.__alarms if elem['alarm_id'] == new_alarm['alarm_id']), None)
@@ -76,6 +160,7 @@ class AlarmManager(metaclass=Singleton):
             existing_element.update(new_alarm)
         else:
             self.__alarms.append(new_alarm)
+        trigger_http('alarm_changed/'+hospital_id+'/'+ward_id+'/'+exam_id, new_alarm)
 
     def check_hr_alarm_limit(self, hr_alarm_limit, hr_value):
         # hrLimit =  { \"RED\": { \"HIGH\": 150, \"LOW\": 40 }, \"YELLOW\": { \"HIGH\": 120, \"LOW\": 50 }
