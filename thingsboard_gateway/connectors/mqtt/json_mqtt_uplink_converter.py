@@ -33,7 +33,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
     @StatisticsService.CollectStatistics(start_stat_type='receivedBytesFromDevices',
                                          end_stat_type='convertedBytesFromDevice')
     def convert(self, topic, data):
-        log.info('JsonMqttUplinkConverter convert')
+        log.info('JsonMqttUplinkConverter convert:' + topic)
         if isinstance(data, list):
             # topic: 'noti/alarm_rules',
             # {'alarm_rule_id': '1b79a578-d82b-11ed-a7d6-0a1ffb605237',
@@ -54,11 +54,12 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
                 self.__alarm_manager.set_active_exam_sensors(data)
         else:
             if topic.startswith('alarms'):
+                log.info('start handle_alarm')
                 self.__alarm_manager.handle_alarm(topic, data)
             if topic == 'noti/alarm_rule':
                 self.__alarm_manager.upsert_alarm_rule(topic, data)
             if topic == 'noti/alarm':
-                self.__alarm_manager.upsert_alarm(data)
+                self.__alarm_manager.upsert_alarm(topic, data)
             if topic == 'noti/exam':
-                self.__alarm_manager.upsert_active_exam_sensor(data)
+                self.__alarm_manager.upsert_active_exam_sensor(topic, data)
         return None

@@ -1,6 +1,7 @@
 # Alarm Rule Engine and Manager
 
 import re
+import json
 import random
 import asyncio
 import aiohttp
@@ -11,12 +12,15 @@ regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0
 
 
 async def trigger_http(url_path, body):
+    print('trigger_http:' + url_path)
+    print('body:' + json.dumps(body))
     async with aiohttp.ClientSession() as session:
-        payload = body
+        payload = json.dumps(body)
         headers = {
             'Content-Type': 'application/json'
         }
         async with session.post(TRIGGER_BASE_URL + url_path, headers=headers, data=payload) as response:
+            print("url:", TRIGGER_BASE_URL + url_path)
             print("Status:", response.status)
             print("Content-type:", response.headers['content-type'])
             html = await response.text()
@@ -37,12 +41,13 @@ class AlarmManager(metaclass=Singleton):
     def __init__(self):
         self.id = random.randint(0, 10000)
         print(f"Instance ID: {self.id}")
-        self.__loop = asyncio.new_event_loop()
         self.__alarm_rules = []  # alarm_rule_id, exam_ids
         self.__alarms = []
         self.__active_exam_sensors = []  # exam_id, thingboard_id
+        self.__loop = asyncio.new_event_loop()
 
     def handle_alarm(self, topic, new_alarm):
+        log.debug('handle_alarm')
         match = re.match(r'^alarms/(\d+)/([^/]+)/([^/]+)$', topic)
         if match is None:
             log.error('Invalid alarm URL: {}'.format(topic))
@@ -62,8 +67,8 @@ class AlarmManager(metaclass=Singleton):
         #     log.warn('invalid exam_id: ' + exam_id)
         #     return self
         originator = new_alarm.get('originator')
-        if originator != 'pm':
-            log.debug('ignore: originator is not pm' + originator)
+        if originator == 'pm':
+            log.debug('ignore: originator is pm' + originator)
             return self
         status = new_alarm.get('status')
         log.debug('status:' + status)

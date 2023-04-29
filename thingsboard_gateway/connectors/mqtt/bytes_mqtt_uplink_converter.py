@@ -328,6 +328,7 @@ async def upload_ecg(device_name, ecg_values):
             'iomt-jwt': IOMT_JWT
         }
         async with session.post(UPLOAD_URL, headers=headers, data=payload) as response:
+            print("url:", UPLOAD_URL)
             print("Status:", response.status)
             print("Content-type:", response.headers['content-type'])
             html = await response.text()
