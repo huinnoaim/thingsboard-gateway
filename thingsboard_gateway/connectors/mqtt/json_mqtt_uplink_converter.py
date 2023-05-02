@@ -22,9 +22,9 @@ from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 class JsonMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config):
         self.__config = config.get('converter')
-        self.__loop = asyncio.new_event_loop()
         self.__send_data_on_change = self.__config.get(SEND_ON_CHANGE_PARAMETER)
         self.__alarm_manager = AlarmManager()
+        log.info('JsonMqttUplinkConverter init')
 
     @property
     def config(self):
@@ -46,20 +46,20 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
             # "YELLOW":{"HIGH":110,"LOW":60}},"setting":{"sound":{"HR":true,"SpO2":true,"BT":true,
             # "NBP":true,"level":3},"nbpListType":"Sys&Dia&Mean"}}',
             # 'exam_ids': 'd952805a-d822-11ed-86ad-0a1ffb605237'})
-            if topic == 'noti/alarm_rules':
+            if topic.startswith('noti/alarm_rules'):
                 self.__alarm_manager.set_alarm_rules(data)
-            if topic == 'noti/alarms':
+            if topic.startswith('noti/alarms'):
                 self.__alarm_manager.set_alarms(data)
-            if topic == 'noti/exams':
+            if topic.startswith('noti/exams'):
                 self.__alarm_manager.set_active_exam_sensors(data)
         else:
             if topic.startswith('alarms'):
                 log.info('start handle_alarm')
                 self.__alarm_manager.handle_alarm(topic, data)
-            if topic == 'noti/alarm_rule':
+            if topic.startswith('noti/alarm_rule'):
                 self.__alarm_manager.upsert_alarm_rule(topic, data)
-            if topic == 'noti/alarm':
+            if topic.startswith('noti/alarm'):
                 self.__alarm_manager.upsert_alarm(topic, data)
-            if topic == 'noti/exam':
+            if topic.startswith('noti/exam'):
                 self.__alarm_manager.upsert_active_exam_sensor(topic, data)
         return None
