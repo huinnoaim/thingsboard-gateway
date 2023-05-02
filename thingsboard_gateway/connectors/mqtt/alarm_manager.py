@@ -67,8 +67,8 @@ class AlarmManager(metaclass=Singleton):
         #     log.warn('invalid exam_id: ' + exam_id)
         #     return self
         originator = new_alarm.get('originator')
-        if originator == 'pm':
-            log.debug('ignore: originator is pm' + originator)
+        if originator == 'pmc':
+            log.debug('ignore: originator is pmc' + originator)
             return self
         status = new_alarm.get('status')
         log.debug('status:' + status)
@@ -209,12 +209,15 @@ class AlarmManager(metaclass=Singleton):
         log.info('check_alarm_condition')
 
         telemetry_data = dict_result.get('telemetry', [{}])
+        # log.info(json.dumps(telemetry_data))
+
         hr = telemetry_data[0].get('values', {}).get('hr', None)
+        log.info(hr)
         if hr is None:
             return None
 
         serial_number = dict_result['deviceName']
-
+        log.info(serial_number)
         existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number),
                              None)
         if existing_exam is None:
