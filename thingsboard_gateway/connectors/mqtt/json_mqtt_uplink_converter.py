@@ -35,7 +35,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
     def convert(self, topic, data):
         log.info('JsonMqttUplinkConverter convert:' + topic)
         if isinstance(data, list):
-            # topic: 'noti/alarm_rules',
+            # topic: 'noti/alarm-rules',
             # {'alarm_rule_id': '1b79a578-d82b-11ed-a7d6-0a1ffb605237',
             # 'name': 'default', 'priority': 100, 'condition': '{"hrLimit":{"RED":{"HIGH":150,"LOW":40},
             # "YELLOW":{"HIGH":120,"LOW":50}},"spO2Limit":{"RED":{"HIGH":null,"LOW":81},
@@ -46,7 +46,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
             # "YELLOW":{"HIGH":110,"LOW":60}},"setting":{"sound":{"HR":true,"SpO2":true,"BT":true,
             # "NBP":true,"level":3},"nbpListType":"Sys&Dia&Mean"}}',
             # 'exam_ids': 'd952805a-d822-11ed-86ad-0a1ffb605237'})
-            if topic.startswith('noti/alarm_rules'):
+            if topic.startswith('noti/alarm-rules'):
                 self.__alarm_manager.set_alarm_rules(data)
             if topic.startswith('noti/alarms'):
                 self.__alarm_manager.set_alarms(data)
@@ -56,7 +56,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
             if topic.startswith('alarms'):
                 log.info('start handle_alarm')
                 self.__alarm_manager.handle_alarm(topic, data)
-            if topic.startswith('noti/alarm_rule'):
+            if topic.startswith('noti/alarm-rules'):
                 self.__alarm_manager.upsert_alarm_rule(topic, data)
             if topic.startswith('noti/alarm'):
                 self.__alarm_manager.upsert_alarm(topic, data)
