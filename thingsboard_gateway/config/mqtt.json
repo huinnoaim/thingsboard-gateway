@@ -36,7 +36,7 @@
       }
     },
     {
-      "topicFilter": "noti/alarm_rules/#",
+      "topicFilter": "noti/alarm-rules/#",
       "retain": false,
       "converter": {
         "type": "json",
