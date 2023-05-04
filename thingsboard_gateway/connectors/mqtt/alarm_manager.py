@@ -103,7 +103,7 @@ class AlarmManager(metaclass=Singleton):
         log.info('upsert_alarm_rule')
         log.info(new_alarm_rule)
 
-        match = re.match(r'^noti/alarm_rules/(\d+)/([^/]+)/([^/]+)$', topic)
+        match = re.match(r'^noti/alarm-rules/(\d+)/([^/]+)/([^/]+)$', topic)
         if match is None:
             log.error('Invalid alarm URL: {}'.format(topic))
             return self
