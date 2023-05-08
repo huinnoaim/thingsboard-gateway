@@ -403,5 +403,5 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             dict_result['alarm'] = alarm
 
         end_time = timer()
-        log.debug('<<elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
+        log.debug('<<mqtt byte elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
         return dict_result

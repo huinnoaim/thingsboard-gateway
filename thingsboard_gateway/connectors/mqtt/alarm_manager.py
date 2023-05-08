@@ -4,6 +4,8 @@ import re
 import json
 import random
 import asyncio
+import time
+from timeit import default_timer as timer
 import aiohttp
 from thingsboard_gateway.connectors.connector import Connector, log
 
@@ -78,7 +80,11 @@ class AlarmManager(metaclass=Singleton):
                 return self
         # if status == 'ACTIVE_UNACK':
         # if status == 'CLEARED_ACK':
+
+        start_time = timer()
         self.__loop.run_until_complete(trigger_http('alarms', new_alarm))
+        end_time = timer()
+        log.info('<<trigger-http time>>: ' + str(end_time - start_time))
 
 
     def get_alarm_rules(self):
@@ -207,6 +213,7 @@ class AlarmManager(metaclass=Singleton):
 
     def find_alarms_if_met_condition(self, dict_result):
         log.info('check_alarm_condition')
+        start_time = timer()
 
         telemetry_data = dict_result.get('telemetry', [{}])
         # log.info(json.dumps(telemetry_data))
@@ -214,6 +221,8 @@ class AlarmManager(metaclass=Singleton):
         hr = telemetry_data[0].get('values', {}).get('hr', None)
         log.info(hr)
         if hr is None:
+            end_time = timer()
+            log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
             return None
 
         serial_number = dict_result['deviceName']
@@ -222,6 +231,8 @@ class AlarmManager(metaclass=Singleton):
                              None)
         if existing_exam is None:
             log.debug('no existing_exam')
+            end_time = timer()
+            log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
             return None
 
         log.debug(existing_exam)
@@ -236,5 +247,8 @@ class AlarmManager(metaclass=Singleton):
             alarm['hospital_id'] = existing_exam['hospital_id']
             alarm['ward_id'] = existing_exam['ward_id']
             alarm['exam_id'] = existing_exam['exam_id']
+
+        end_time = timer()
+        log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
 
         return alarm

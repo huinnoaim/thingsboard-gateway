@@ -13,6 +13,9 @@
 #     limitations under the License.
 import asyncio
 import aiohttp
+import time
+import numpy as np
+from timeit import default_timer as timer
 from thingsboard_gateway.gateway.constants import SEND_ON_CHANGE_PARAMETER
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
@@ -34,6 +37,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
                                          end_stat_type='convertedBytesFromDevice')
     def convert(self, topic, data):
         log.info('JsonMqttUplinkConverter convert:' + topic)
+        start_time = timer()
         if isinstance(data, list):
             # topic: 'noti/alarm-rules',
             # {'alarm_rule_id': '1b79a578-d82b-11ed-a7d6-0a1ffb605237',
@@ -62,4 +66,6 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
                 self.__alarm_manager.upsert_alarm(topic, data)
             if topic.startswith('noti/exam'):
                 self.__alarm_manager.upsert_active_exam_sensor(topic, data)
+        end_time = timer()
+        log.debug('<<mqtt json converter elapsed time>>: ' + str(end_time - start_time))
         return None
