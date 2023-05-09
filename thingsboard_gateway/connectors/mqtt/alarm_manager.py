@@ -120,12 +120,12 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__alarm_rules if elem['id'] == new_alarm_rule['id']), None)
+        existing_element = next((elem for elem in self.__alarm_rules if elem['ex_ids'] == new_alarm_rule['ex_ids']), None)
 
         if existing_element is not None:
             existing_element.update(new_alarm_rule)
         else:
-            self.__alarms.append(new_alarm_rule)
+            self.__alarm_rules.append(new_alarm_rule)
         trigger_http('alarm_rule_changed', new_alarm_rule)
 
     def upsert_active_exam_sensor(self, topic, new_active_exam_sensor):
