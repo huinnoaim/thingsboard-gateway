@@ -126,7 +126,7 @@ class AlarmManager(metaclass=Singleton):
             existing_element.update(new_alarm_rule)
         else:
             self.__alarms.append(new_alarm_rule)
-        trigger_http('alarm_rule_changed')
+        trigger_http('alarm_rule_changed', new_alarm_rule)
 
     def upsert_active_exam_sensor(self, topic, new_active_exam_sensor):
         log.info('upsert_active_exam_sensor')
