@@ -414,6 +414,7 @@ class MqttConnector(Connector, Thread):
     def put_data_to_convert(self, converter, message, content) -> bool:
         if not self.__msg_queue.full():
             self.__msg_queue.put((converter.convert, message.topic, content), True, 100)
+            self.__log.info('Data for converting is added to queue')
             return True
         return False
 
@@ -423,8 +424,12 @@ class MqttConnector(Connector, Thread):
             self.__log.debug("Successfully converted message from topic %s", topic)
 
     def __threads_manager(self):
+        worker_idx = len(self.__workers_thread_pool)
         if len(self.__workers_thread_pool) == 0:
-            worker = MqttConnector.ConverterWorker("Main", self.__msg_queue, self._save_converted_msg, self._client)
+            worker = MqttConnector.ConverterWorker(f"MqttConnector ConverterWorker-{worker_idx}",
+                                                   self.__msg_queue,
+                                                   self._save_converted_msg,
+                                                   self._client)
             self.__workers_thread_pool.append(worker)
             worker.start()
 
@@ -432,7 +437,7 @@ class MqttConnector(Connector, Thread):
         threads_count = len(self.__workers_thread_pool)
         if number_of_needed_threads > threads_count < self.__max_number_of_workers:
             thread = MqttConnector.ConverterWorker(
-                "Worker " + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)), self.__msg_queue,
+                f"MqttConnector ConverterWorker-{worker_idx}-" + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)), self.__msg_queue,
                 self._save_converted_msg, self._client)
             self.__workers_thread_pool.append(thread)
             thread.start()
@@ -803,7 +808,10 @@ class MqttConnector(Connector, Thread):
 
     @CustomCollectStatistics(start_stat_type='allBytesSentToDevices')
     def _publish(self, request_topic, data_to_send, retain):
-        self._client.publish(request_topic, data_to_send, retain).wait_for_publish()
+        # Publish ts kv
+        self._client.publish(request_topic, data_to_send, retain)\
+                    .wait_for_publish()
+        log.info('Thingsboard Data is published')
 
     def rpc_cancel_processing(self, topic):
         log.info("RPC canceled or terminated. Unsubscribing from %s", topic)

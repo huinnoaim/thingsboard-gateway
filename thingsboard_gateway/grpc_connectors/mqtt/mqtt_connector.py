@@ -391,7 +391,9 @@ class GrpcMqttConnector(GwGrpcConnector):
 
     def __threads_manager(self):
         if len(self.__workers_thread_pool) == 0:
-            worker = MqttConnector.ConverterWorker("Main", self.__msg_queue, self._save_converted_msg)
+            worker = MqttConnector.ConverterWorker("MqttConnector ConverterWorker",
+                                                   self.__msg_queue,
+                                                   self._save_converted_msg)
             self.__workers_thread_pool.append(worker)
             worker.start()
 
