@@ -69,8 +69,9 @@ class TBClient(threading.Thread):
 
             # check certificates for end date
             self._check_cert_thread = threading.Thread(name='Check Certificates Thread',
-                                                       target=self._check_certificates, daemon=True)
-            self._check_cert_thread.start()
+                                                       target=self._check_certificates,
+                                                       daemon=True)
+            self._check_cert_thread.start()  # Thread-8
 
             self.client._client.tls_set(ca_certs=self.__ca_cert,
                                         certfile=self.__cert,
