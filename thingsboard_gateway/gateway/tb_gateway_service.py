@@ -18,7 +18,6 @@ import logging.handlers
 import multiprocessing.managers
 from signal import signal, SIGINT
 import subprocess
-from copy import deepcopy
 from os import execv, listdir, path, pathsep, stat, system, environ
 from queue import SimpleQueue
 from random import choice
@@ -45,8 +44,6 @@ from thingsboard_gateway.storage.sqlite.sqlite_event_storage import SQLiteEventS
 from thingsboard_gateway.tb_utility.tb_gateway_remote_configurator import RemoteConfigurator
 from thingsboard_gateway.tb_utility.tb_loader import TBModuleLoader
 from thingsboard_gateway.tb_utility.tb_logger import TBLoggerHandler
-from thingsboard_gateway.tb_utility.tb_remote_shell import RemoteShell
-from thingsboard_gateway.tb_utility.tb_updater import TBUpdater
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 
 GRPC_LOADED = False
@@ -176,11 +173,6 @@ class TBGatewayService:
         global log
         log = logging.getLogger('service')
         log.info("Gateway starting...")
-        self.__updater = TBUpdater()
-        self.__updates_check_period_ms = 300000
-        self.__updates_check_time = 0
-        self.version = self.__updater.get_version()
-        log.info("ThingsBoard IoT gateway version: %s", self.version["current_version"])
         self.available_connectors = {}
         self.__connector_incoming_messages = {}
         self.__connected_devices = {}
@@ -228,11 +220,7 @@ class TBGatewayService:
             "device_renamed": self.__process_renamed_gateway_devices,
             "device_deleted": self.__process_deleted_gateway_devices,
         }
-        self.__remote_shell = None
-        if self.__config["thingsboard"].get("remoteShell"):
-            log.warning("Remote shell is enabled. Please be carefully with this feature.")
-            self.__remote_shell = RemoteShell(platform=self.__updater.get_platform(),
-                                              release=self.__updater.get_release())
+
         self.__rpc_remote_shell_command_in_progress = None
         self.__scheduled_rpc_calls = []
         self.__rpc_processing_queue = SimpleQueue()
@@ -393,9 +381,6 @@ class TBGatewayService:
                     self.check_connector_configuration_updates()
                     connectors_configuration_check_time = time() * 1000
 
-                if cur_time - self.__updates_check_time >= self.__updates_check_period_ms:
-                    self.__updates_check_time = time() * 1000
-                    self.version = self.__updater.get_version()
         except Exception as e:
             log.exception(e)
             self.__stop_gateway()
@@ -417,7 +402,6 @@ class TBGatewayService:
 
     def __stop_gateway(self):
         self.stopped = True
-        self.__updater.stop()
         log.info("Stopping...")
 
         if self.__statistics_service:
@@ -1014,7 +998,7 @@ class TBGatewayService:
                                     log.debug("Sending command RPC %s to connector %s", content["method"],
                                               connector_name)
                                     result = self.available_connectors[connector_name].server_side_rpc_handler(content)
-                        elif module == 'gateway' or module in self.__remote_shell.shell_commands:
+                        elif module == 'gateway':
                             result = self.__rpc_gateway_processing(request_id, content)
                         else:
                             log.error("Connector \"%s\" not found", module)
@@ -1038,13 +1022,8 @@ class TBGatewayService:
         log.info("Received RPC request to the gateway, id: %s, method: %s", str(request_id), content["method"])
         arguments = content.get('params', {})
         method_to_call = content["method"].replace("gateway_", "")
-        result = None
-        if self.__remote_shell is not None:
-            method_function = self.__remote_shell.shell_commands.get(method_to_call,
-                                                                     self.__gateway_rpc_methods.get(method_to_call))
-        else:
-            log.info("Remote shell is disabled.")
-            method_function = self.__gateway_rpc_methods.get(method_to_call)
+
+        method_function = self.__gateway_rpc_methods.get(method_to_call)
         if method_function is None and method_to_call in self.__rpc_scheduled_methods_functions:
             seconds_to_restart = arguments * 1000 if arguments and arguments != '{}' else 0
             self.__scheduled_rpc_calls.append(
@@ -1072,28 +1051,6 @@ class TBGatewayService:
             if self.__connected_devices[device]["connector"] is not None:
                 data_to_send[device] = self.__connected_devices[device]["connector"].get_name()
         return {"code": 200, "resp": data_to_send}
-
-    def __rpc_update(self, *args):
-        try:
-            result = {"resp": self.__updater.update(),
-                      "code": 200,
-                      }
-        except Exception as e:
-            result = {"error": str(e),
-                      "code": 500
-                      }
-        return result
-
-    def __rpc_version(self, *args):
-        try:
-            result = {"resp": self.__updater.get_version(),
-                      "code": 200,
-                      }
-        except Exception as e:
-            result = {"error": str(e),
-                      "code": 500
-                      }
-        return result
 
     def is_rpc_in_progress(self, topic):
         return topic in self.__rpc_requests_in_progress

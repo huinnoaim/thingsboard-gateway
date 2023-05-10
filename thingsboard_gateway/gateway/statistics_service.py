@@ -2,8 +2,8 @@ import datetime
 import subprocess
 from threading import Thread
 from time import time, sleep
-
 import simplejson
+
 
 class StatisticsService(Thread):
     DATA_STREAMS_STATISTICS = {

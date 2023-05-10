@@ -84,14 +84,7 @@ class TBClient(threading.Thread):
         # Adding callbacks
         self.client._client._on_connect = self._on_connect
         self.client._client._on_disconnect = self._on_disconnect
-        # self.client._client._on_log = self._on_log
         self.start()
-
-    # def _on_log(self, *args):
-    #     if "exception" in args[-1]:
-    #         log.exception(args)
-    #     else:
-    #         log.debug(args)
 
     def _check_certificates(self):
         while not self.__stopped and not self.__paused:
@@ -151,9 +144,9 @@ class TBClient(threading.Thread):
         self.unsubscribe('*')
         self.client.disconnect()
 
-    def unsubscribe(self, subsription_id):
-        self.client.gw_unsubscribe(subsription_id)
-        self.client.unsubscribe_from_attribute(subsription_id)
+    def unsubscribe(self, subscription_id):
+        self.client.gw_unsubscribe(subscription_id)
+        self.client.unsubscribe_from_attribute(subscription_id)
 
     def connect(self, min_reconnect_delay=10):
         self.__paused = False

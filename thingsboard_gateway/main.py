@@ -11,17 +11,12 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
-import sys
 import argparse
 import os
-from os import curdir, listdir, mkdir, path
+from os import path
 from pathlib import Path
 
 import yaml
-
-from thingsboard_gateway.gateway.tb_gateway_service import TBGatewayService
-from thingsboard_gateway.gateway.hot_reloader import HotReloader
-
 
 
 def update_cfg(cfg_fpath: Path, host: str, access_token: str):

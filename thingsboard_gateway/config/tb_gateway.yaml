@@ -1,5 +1,5 @@
 thingsboard:
-  host: <Fill host name>
+  host: thingsboard.karina-huinno.tk
   port: 8081
   remoteShell: false
   remoteConfiguration: false
@@ -20,7 +20,7 @@ thingsboard:
     inactivityTimeoutSeconds: 120
     inactivityCheckPeriodSeconds: 10
   security:
-    accessToken: <Fill access token>
+    accessToken: awS0OgR2FvKq8Z2Ws1Pw
   qos: 1
 storage:
   type: memory
