@@ -43,7 +43,7 @@ class AlarmManager(metaclass=Singleton):
     def __init__(self):
         self.id = random.randint(0, 10000)
         print(f"Instance ID: {self.id}")
-        self.__alarm_rules = []  # alarm_rule_id, exam_ids
+        self.__alarm_rules = []  # examIds
         self.__alarms = []
         self.__active_exam_sensors = []  # exam_id, thingboard_id
         self.__loop = asyncio.new_event_loop()
@@ -120,7 +120,7 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__alarm_rules if elem['ex_ids'] == new_alarm_rule['ex_ids']), None)
+        existing_element = next((elem for elem in self.__alarm_rules if elem['examIds'] == new_alarm_rule['examIds']), None)
 
         if existing_element is not None:
             existing_element.update(new_alarm_rule)

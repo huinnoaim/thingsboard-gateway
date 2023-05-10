@@ -40,6 +40,7 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
         start_time = timer()
         if isinstance(data, list):
             # topic: 'noti/alarm-rules',
+            {"condition":{"hrLimit":{"RED":{"HIGH":150,"LOW":40},"YELLOW":{"HIGH":120,"LOW":50}},"spO2Limit":{"RED":{"HIGH":null,"LOW":80},"YELLOW":{"HIGH":100,"LOW":90}},"btLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":38.5,"LOW":18.6}},"nbpSLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":160,"LOW":90}},"nbpDLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":90,"LOW":50}},"nbpMLimit":{"RED":{"HIGH":null,"LOW":null},"YELLOW":{"HIGH":110,"LOW":60}},"setting":{"sound":{"HR":true,"SpO2":true,"BT":true,"NBP":true,"level":0},"nbpListType":"Sys & Dia & Mean"}},"ex_ids":"c3b20b10-ed46-11ed-ab7d-628fda672062","name":"테스트2","enable":true,"priority":100}
             # {'alarm_rule_id': '1b79a578-d82b-11ed-a7d6-0a1ffb605237',
             # 'name': 'default', 'priority': 100, 'condition': '{"hrLimit":{"RED":{"HIGH":150,"LOW":40},
             # "YELLOW":{"HIGH":120,"LOW":50}},"spO2Limit":{"RED":{"HIGH":null,"LOW":81},
