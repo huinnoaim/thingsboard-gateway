@@ -449,6 +449,7 @@ class MqttConnector(Connector, Thread):
 
         self.__log.info(f">>> Num of MqttConverterWorker: {len(self.__workers_thread_pool)} <<<")
         self.__log.info(f">>> Message Queue Size: {(self.__msg_queue.qsize())} <<<")
+        self.__log.info(f'>>> Current Message Handling Stats: {self.statistics} <<<')
 
     def _on_message(self, client, userdata, message):
         # print(message.payload)
@@ -843,7 +844,6 @@ class MqttConnector(Connector, Thread):
                     if converted_data and (converted_data.get(ATTRIBUTES_PARAMETER) or
                                            converted_data.get(TELEMETRY_PARAMETER)):
                         self.__send_result(config, converted_data)
-                        self.__log.info(f'{self.name}: Result is sent')
 
                     if converted_data and converted_data.get('alarm'):
                         alarm = converted_data.get('alarm')
