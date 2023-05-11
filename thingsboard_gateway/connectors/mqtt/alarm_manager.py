@@ -4,10 +4,11 @@ import re
 import json
 import random
 import asyncio
-import time
 from timeit import default_timer as timer
 import aiohttp
-from thingsboard_gateway.connectors.connector import Connector, log
+import logging
+
+log = logging.getLogger("alarm_manager")
 
 TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
 regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0-9a-f]{12}$")
@@ -45,7 +46,7 @@ class AlarmManager(metaclass=Singleton):
         print(f"Instance ID: {self.id}")
         self.__alarm_rules = []  # examIds
         self.__alarms = []
-        self.__active_exam_sensors = []  # exam_id, thingboard_id
+        self.__active_exam_sensors = []  # exam_id, thingsboard_id
         self.__loop = asyncio.new_event_loop()
 
     def handle_alarm(self, topic, new_alarm):
@@ -61,19 +62,19 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         alarm_id = new_alarm.get('id')
-        # if not regex_uuid.match(alarm_id):
-        #     log.warn('invalid alarm id: ' + alarm_id)
-        #     return self
+        if not regex_uuid.match(alarm_id):
+            log.warning('invalid alarm id: ' + alarm_id)
+            return self
         exam_id = new_alarm.get('exam_id')
-        # if not regex_uuid.match(exam_id):
-        #     log.warn('invalid exam_id: ' + exam_id)
-        #     return self
+        if not regex_uuid.match(exam_id):
+            log.warning('invalid exam_id: ' + exam_id)
+            return self
         originator = new_alarm.get('originator')
         if originator == 'pmc':
             log.debug('ignore: originator is pmc' + originator)
             return self
         status = new_alarm.get('status')
-        log.debug('status:' + status)
+        log.debug('status:' + status + ', alarm_id:' + alarm_id + ', exam_id:' + exam_id)
         if status == 'ACTIVE_ACK':
             if new_alarm.get('checkFromPmc'):
                 log.debug('ignore checked from PMC')
@@ -85,7 +86,6 @@ class AlarmManager(metaclass=Singleton):
         self.__loop.run_until_complete(trigger_http('alarms', new_alarm))
         end_time = timer()
         log.info('<<trigger-http time>>: ' + str(end_time - start_time))
-
 
     def get_alarm_rules(self):
         return self.__alarm_rules
@@ -120,7 +120,10 @@ class AlarmManager(metaclass=Singleton):
             return self
 
         # Check if the element already exists in the array
-        existing_element = next((elem for elem in self.__alarm_rules if elem['examIds'] == new_alarm_rule['examIds']), None)
+        existing_element = next(
+            (elem for elem in self.__alarm_rules if elem['examIds'] == new_alarm_rule['examIds']),
+            None
+        )
 
         if existing_element is not None:
             existing_element.update(new_alarm_rule)
@@ -178,7 +181,8 @@ class AlarmManager(metaclass=Singleton):
             self.__alarms.append(new_alarm)
         trigger_http('alarm_changed', new_alarm)
 
-    def check_hr_alarm_limit(self, hr_alarm_limit, hr_value):
+    @staticmethod
+    def check_hr_alarm_limit(hr_alarm_limit, hr_value):
         # hrLimit =  { \"RED\": { \"HIGH\": 150, \"LOW\": 40 }, \"YELLOW\": { \"HIGH\": 120, \"LOW\": 50 }
         alarm_type = None
         content = None
@@ -222,7 +226,7 @@ class AlarmManager(metaclass=Singleton):
         log.info(hr)
         if hr is None:
             end_time = timer()
-            log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
+            log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
             return None
 
         serial_number = dict_result['deviceName']
@@ -232,7 +236,7 @@ class AlarmManager(metaclass=Singleton):
         if existing_exam is None:
             log.debug('no existing_exam')
             end_time = timer()
-            log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
+            log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
             return None
 
         log.debug(existing_exam)
@@ -249,6 +253,6 @@ class AlarmManager(metaclass=Singleton):
             alarm['exam_id'] = existing_exam['exam_id']
 
         end_time = timer()
-        log.info('<<find_alarms_if_met_condition elipse  time>>: ' + str(end_time - start_time))
+        log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
 
         return alarm

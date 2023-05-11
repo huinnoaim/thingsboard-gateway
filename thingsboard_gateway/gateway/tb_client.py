@@ -59,11 +59,24 @@ class TBClient(threading.Thread):
             self.__password = str(credentials["password"])
         if credentials.get("clientId") is not None:
             self.__client_id = str(credentials["clientId"])
-        self.client = TBGatewayMqttClient(self.__host, self.__port, self.__username, self.__password, self, quality_of_service=self.__default_quality_of_service, client_id=self.__client_id)
+
+        self.client = TBGatewayMqttClient(
+            self.__host,
+            self.__port,
+            self.__username,
+            self.__password,
+            self,
+            quality_of_service=self.__default_quality_of_service,
+            client_id=self.__client_id
+        )
+
         if self.__tls:
-            self.__ca_cert = self.__config_folder_path + credentials.get("caCert") if credentials.get("caCert") is not None else None
-            self.__private_key = self.__config_folder_path + credentials.get("privateKey") if credentials.get("privateKey") is not None else None
-            self.__cert = self.__config_folder_path + credentials.get("cert") if credentials.get("cert") is not None else None
+            self.__ca_cert = self.__config_folder_path + credentials.get("caCert") if credentials.get(
+                "caCert") is not None else None
+            self.__private_key = self.__config_folder_path + credentials.get("privateKey") if credentials.get(
+                "privateKey") is not None else None
+            self.__cert = self.__config_folder_path + credentials.get("cert") if credentials.get(
+                "cert") is not None else None
             self.__check_cert_period = credentials.get('checkCertPeriod', 86400)
             self.__certificate_days_left = credentials.get('certificateDaysLeft', 3)
 
@@ -127,10 +140,19 @@ class TBClient(threading.Thread):
     def _on_disconnect(self, client, userdata, result_code):
         # pylint: disable=protected-access
         if self.client._client != client:
-            log.info("TB client %s has been disconnected. Current client for connection is: %s", str(client), str(self.client._client))
+            log.info(
+                "TB client %s has been disconnected. Current client for connection is: %s",
+                str(client),
+                str(self.client.client)
+            )
             client.disconnect()
             client.loop_stop()
         else:
+            log.info(
+                "TB client %s has been disconnected. Current client for connection is: %s",
+                str(client),
+                result_code
+            )
             self.__is_connected = False
             self.client._on_disconnect(client, userdata, result_code)
 
@@ -155,34 +177,41 @@ class TBClient(threading.Thread):
 
     def run(self):
         keep_alive = self.__config.get("keep_alive", 120)
+        if self.__stopped:
+            return
+
+        while self.client.is_connected():
+            sleep(.2)
+
         try:
-            while not self.client.is_connected() and not self.__stopped:
+            while not self.client.is_connected():
                 if not self.__paused:
                     if self.__stopped:
                         break
-                    log.debug("connecting to ThingsBoard")
+                    log.info("connecting to ThingsBoard")
                     try:
                         self.client.connect(keepalive=keep_alive,
                                             min_reconnect_delay=self.__min_reconnect_delay)
                     except ConnectionRefusedError:
+                        log.warning('ConnectionRefusedError')
                         pass
                     except Exception as e:
-                        log.exception(e)
-                sleep(1)
+                        log.error(e)
+                sleep(3)
         except Exception as e:
             log.exception(e)
             sleep(10)
 
-        while not self.__stopped:
-            try:
-                if not self.__stopped:
-                    sleep(.2)
-                else:
-                    break
-            except KeyboardInterrupt:
-                self.__stopped = True
-            except Exception as e:
-                log.exception(e)
+        # while not self.__stopped:
+        #     try:
+        #         if not self.__stopped:
+        #             sleep(.2)
+        #         else:
+        #             break
+        #     except KeyboardInterrupt:
+        #         self.__stopped = True
+        #     except Exception as e:
+        #         log.exception(e)
 
     def get_config_folder_path(self):
         return self.__config_folder_path

@@ -1,6 +1,8 @@
 import math
-from scipy import signal as scisig
-from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import log
+from scipy import signal as sci_sig
+import logging
+
+log = logging.getLogger("hr_detector")
 
 _WINDOW_SEC = 0.160
 _MIN_RR = 0.2  # compare with 0.33
@@ -9,6 +11,7 @@ _ARTICLE_SAMPLING_RATE = 200.0
 _LOWER_FILTER_HZ = 5.0
 _UPPER_FILTER_HZ = 15.0
 _HR_CALC_WINDOW_SEC = 60
+
 
 def detect(signal, rate):
     buffer, samples_delay = _filter_signal(signal, rate)
@@ -69,8 +72,6 @@ def _high_pass_filter(signal):
 
 
 def _filter_signal(signal, rate):
-    result = None
-    delay = None
     if rate == _ARTICLE_SAMPLING_RATE:
         buffer = _low_pass_filter(signal)
         result = _high_pass_filter(buffer)
@@ -81,10 +82,10 @@ def _filter_signal(signal, rate):
         nyq = 0.5 * rate
         lower = _LOWER_FILTER_HZ / nyq
         upper = _UPPER_FILTER_HZ / nyq
-        b, a = scisig.butter(2, upper, btype="low")
-        result = scisig.filtfilt(b, a, signal)
-        b, a = scisig.butter(2, lower, btype="high")
-        result = scisig.filtfilt(b, a, signal)
+        b, a = sci_sig.butter(2, upper, btype="low")
+        result = sci_sig.filtfilt(b, a, signal)
+        b, a = sci_sig.butter(2, lower, btype="high")
+        result = sci_sig.filtfilt(b, a, signal)
         delay = int(0.06 * rate)
     return result, delay
 
@@ -120,18 +121,18 @@ def _thresholding(integrated, min_rr_width, max_rr_width):
     peaks = []
     threshold1 = spki
     threshold2 = spki
-    searchback = False
-    searchback_end = 0
+    search_back = False
+    search_back_end = 0
     previous = 0
     i = 2
     while i < len(integrated) - 2:
-        if i - previous > max_rr_width and i - searchback_end > max_rr_width:
-            searchback = True
-            searchback_end = i
+        if i - previous > max_rr_width and i - search_back_end > max_rr_width:
+            search_back = True
+            search_back_end = i
             i = previous + 2
             continue
-        if searchback and i == searchback_end:
-            searchback = False
+        if search_back and i == search_back_end:
+            search_back = False
             continue
         peaki = integrated[i]
         if peaki < integrated[i - 2] or peaki <= integrated[i + 2]:
@@ -139,7 +140,7 @@ def _thresholding(integrated, min_rr_width, max_rr_width):
             continue
 
         is_qrs = False
-        if searchback:
+        if search_back:
             if peaki > threshold2:
                 spki = 0.750 * spki + 0.250 * peaki
                 is_qrs = True

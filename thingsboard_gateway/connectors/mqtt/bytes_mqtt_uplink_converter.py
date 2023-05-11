@@ -15,11 +15,13 @@ from bin_parser import BinReader
 from simplejson import dumps
 from cache3 import SafeCache, SimpleCache
 
-from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter, log
-from thingsboard_gateway.gateway.statistics_service import StatisticsService
+from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
+import logging
+
+log = logging.getLogger("bytes_mqtt_uplink_converter")
 
 HR_CALC_RANGE_SEC = 10  # 10sec
 AI_INPUT_ECG_LENGTH = 15000  # 1min
@@ -44,7 +46,7 @@ path_types_yml = os.path.join(path_current_directory, 'types.yml')
 structure = yaml.safe_load(open(path_structure_yml).read())
 types = yaml.safe_load(open(path_types_yml).read())
 
-log.info(structure, types)
+log.debug(structure, types)
 
 BUFFER_TIMEOUT = 80
 # key: name, value: cache
@@ -247,11 +249,11 @@ def queuing_ecg(device_name, start_ts: int, ecg_list, ecg_index: int, loop):
     # valid with 1m =  1x60
     ecg_cache.ex_set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
     index_cache.ex_set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
-    # log.info(index_cache)
+    # print(index_cache)
     # 0: ts, 1: index, 2: device name
     index_list = filter(lambda d: d[2] == device_name, list(index_cache))
     index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
-    # log.info(index_list)
+    # print(index_list)
     if len(index_list) > 1:
         last_ecg_index = int(index_list[1][1])
         expected_index = last_ecg_index + 960
@@ -259,36 +261,36 @@ def queuing_ecg(device_name, start_ts: int, ecg_list, ecg_index: int, loop):
             log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
 
     # 60s ttl
-    if ttl_cache.has_key(device_name, tag='ttl') is False:
+    if 'ttl' not in ttl_cache.get(device_name, {}):
         ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
-        log.info('Now trigger AI--------')
-        # log.info(ai_input)
+        log.debug('Now trigger AI--------')
+        # print(ai_input)
         ai_input = fetch_ecg(device_name)
         if len(ai_input) == AI_INPUT_ECG_LENGTH:
-            log.info('Upload 15000 AI INPUT')
-            # loop.run_until_complete(upload_ecg(device_name, ai_input))
+            log.debug('Upload 15000 AI INPUT')
+            loop.run_until_complete(upload_ecg(device_name, ai_input))
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
-    log.info(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
-        len(ecg_list)) + ',TTL:' + str(ttl))
-    # log.info(list(ecg_cache))
-    # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
-    # log.info(len(list(ecg_cache)))
+    # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
+    #     len(ecg_list)) + ',TTL:' + str(ttl))
+    # print(list(ecg_cache))
+    # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
+    # print(len(list(ecg_cache)))
 
 
 def fetch_ecg(device_name):
     # 0: ts, 1: index, 2: device name
     ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
-    # log.info(list(map(lambda d: d[0], ai_input)))
+    # print(list(map(lambda d: d[0], ai_input)))
     ai_input = list(map(lambda d: json.loads(d[1]), ai_input))
     ai_input = np.array(ai_input, float).flatten().tolist()
     # 1min =  250*60 = 15000
     ai_input = ai_input[:AI_INPUT_ECG_LENGTH]
-    # log.info('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
-    log.info('ECG cache value length ' + device_name + ' : ' + str(len(list(ai_input))))
-    # log.info(len(ai_input))
+    # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
+    # log.debug('ECG cache value length ' + device_name + ' : ' + str(len(list(ai_input))))
+    # print(len(ai_input))
     return ai_input
 
 
@@ -297,20 +299,20 @@ def calculate_hr(device_name):
     # now_ms = int( time.time_ns() / 1000 )
     now_sec = int(time.time())
     hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_sec - HR_CALC_RANGE_SEC)), list(ecg_cache))
-    # log.info(len(list(hr_input)))
-    # log.info(list(hr_input))
+    # print(len(list(hr_input)))
+    # print(list(hr_input))
     # hr_input tuple = (timestamp, ecg, device_name)
     hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
-    # log.info(list(map(lambda d: d[0], hr_input)))
+    # print(list(map(lambda d: d[0], hr_input)))
     hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
     hr_input = np.array(hr_input, float).flatten().tolist()
     # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
     # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
-    # log.info(len(hr_input))
-    # log.info(list(hr_input))
+    # print(len(hr_input))
+    # print(list(hr_input))
     # 250 samples/s
     hr = hr_detector.detect(hr_input, 250)
-    # log.info(device_name + ', HR: ' + str(hr))
+    # print(device_name + ', HR: ' + str(hr))
     return hr
 
 
@@ -345,8 +347,6 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
     def config(self):
         return self.__config
 
-    @StatisticsService.CollectStatistics(start_stat_type='receivedBytesFromDevices',
-                                         end_stat_type='convertedBytesFromDevice')
     def convert(self, topic, data):
         start_time = timer()
 
@@ -372,8 +372,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
                         dict_result[key].append(value)
         except Exception as e:
             # Log the error and the config and data that caused the error
-            log.error('Error in converter, for config: \n%s\n and message: \n%s\n', dumps(self.__config), str(data))
-            log.exception(e)
+            log.error(e, dumps(self.__config), str(data))
             return dict_result
 
         # Extract the device name from the telemetry data
@@ -391,15 +390,13 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
 
             hr = calculate_hr(device_name)
-            # log.info('device_name: ' + device_name + ', ts: ' + field_ts + ', ecgIndex: ' + str(field_ecg_index) + ', HR: ' + str(hr))
 
-            # dict_result['telemetry'][0]['values']['hr'] = 0
             dict_result['telemetry'][0]['values']['hr'] = hr
 
         # check alarm
         alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
         if alarm is not None:
-            log.info(alarm)
+            log.debug(alarm)
             dict_result['alarm'] = alarm
 
         end_time = timer()

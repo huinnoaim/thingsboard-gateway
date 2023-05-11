@@ -35,15 +35,14 @@ def main(args: argparse.Namespace):
 
 
 def get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="ThingsBoard Gateway EntryPoint. It updates cfg file and execute the tb gateway")
-    parser.add_argument("--host", help="Thignsboard MQTT Host Address", required=True)
+    parser = argparse.ArgumentParser(
+        description="Thingsboard Gateway EntryPoint. It updates cfg file and execute the tb gateway")
+    parser.add_argument("--host", help="Thingsboard MQTT Host Address", required=True)
     parser.add_argument("--access_token", help="Access Token For Accessing The MQTT Host", required=True)
     parser.add_argument(
         "--cfg_fpath",
         help="Thingsboard Gateway Configuration Filepath",
-        default=
-            path.dirname(path.abspath(__file__)) +
-            "/config/tb_gateway.yaml".replace("/", path.sep)
+        default=path.dirname(path.abspath(__file__)) + "/config/tb_gateway.yaml".replace("/", path.sep)
     )
     return parser.parse_args()
 

@@ -1,12 +1,10 @@
 thingsboard:
-  host: thingsboard.karina-huinno.tk
+  host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
   port: 8081
   remoteShell: false
   remoteConfiguration: false
   statistics:
-    enable: true
-    statsSendPeriodInSeconds: 3600
-    configuration: statistics/statistics_linux.json
+    enable: false
   deviceFiltering:
     enable: false
     filterFile: list.json
@@ -17,25 +15,14 @@ thingsboard:
   handleDeviceRenaming: true
   checkingDeviceActivity:
     checkDeviceInactivity: false
-    inactivityTimeoutSeconds: 120
-    inactivityCheckPeriodSeconds: 10
   security:
-    accessToken: awS0OgR2FvKq8Z2Ws1Pw
+    accessToken: m8tBNRYCf8vMKLzlKtfd
   qos: 1
 storage:
   type: memory
   read_records_count: 100
   max_records_count: 100000
-grpc:
-  enabled: false
-  serverPort: 9595
-  keepaliveTimeMs: 10000
-  keepaliveTimeoutMs: 5000
-  keepalivePermitWithoutCalls: true
-  maxPingsWithoutData: 0
-  minTimeBetweenPingsMs: 10000
-  minPingIntervalWithoutDataMs: 5000
 connectors:
-  - name: MQTT Broker Connector
+  - name: Mosquitto Broker
     type: mqtt
     configuration: mqtt.json

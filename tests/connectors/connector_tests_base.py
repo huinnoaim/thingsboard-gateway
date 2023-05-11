@@ -49,7 +49,6 @@ class ConnectorTestBase(unittest.TestCase):
             datafile = load(required_file)
         return datafile
 
-
     def _create_connector(self, config_filename, connector_type=None):
         if connector_type is None:
             class_name = self.__class__.__name__.lower()
@@ -57,7 +56,6 @@ class ConnectorTestBase(unittest.TestCase):
         self._connector_type = connector_type
         self.config = self._load_data_file(config_filename, connector_type)
         self.assertTrue(self.config is not None)
-        connector = TBUtility.check_and_import(connector_type, DEFAULT_CONNECTORS[connector_type])
         self.assertTrue(connector is not None)
         self.connector = connector(self.gateway, self.config, connector_type)
         sleep(1)
