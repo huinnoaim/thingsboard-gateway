@@ -17,7 +17,7 @@ from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplink
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 import logging
 
-log = logging.getLogger("hr_detector")
+log = logging.getLogger("converter")
 
 
 class JsonMqttUplinkConverter(MqttUplinkConverter):

@@ -21,7 +21,7 @@ import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 import logging
 
-log = logging.getLogger("bytes_mqtt_uplink_converter")
+log = logging.getLogger("converter")
 
 HR_CALC_RANGE_SEC = 10  # 10sec
 AI_INPUT_ECG_LENGTH = 15000  # 1min

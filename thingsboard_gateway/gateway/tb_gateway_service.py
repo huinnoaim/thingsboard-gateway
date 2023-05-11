@@ -17,7 +17,6 @@ import logging.config
 import logging.handlers
 import multiprocessing.managers
 from signal import signal, SIGINT
-import subprocess
 from os import listdir, path, stat, system, environ
 from queue import SimpleQueue
 from random import choice
@@ -26,7 +25,6 @@ from sys import getsizeof
 from threading import RLock, Thread
 from time import sleep, time
 
-import simplejson
 from simplejson import JSONDecodeError, dumps, load, loads
 from yaml import safe_load
 
@@ -41,6 +39,7 @@ from thingsboard_gateway.storage.memory.memory_event_storage import MemoryEventS
 from thingsboard_gateway.storage.sqlite.sqlite_event_storage import SQLiteEventStorage
 from thingsboard_gateway.tb_utility.tb_logger import TBLoggerHandler
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+from thingsboard_gateway.tb_utility.tb_loader import TBModuleLoader
 
 log = logging.getLogger('service')
 main_handler = logging.handlers.MemoryHandler(-1)
@@ -356,7 +355,12 @@ class TBGatewayService:
                         log.warning("Cannot parse connector configuration as a JSON, it will be passed as a string.")
 
                     if not self.connectors_configs.get(connector['type']):
+                        connector_class = TBModuleLoader.import_module(connector['type'],
+                                                                       self._default_connectors.get(
+                                                                           connector['type'],
+                                                                           'mqtt'))
                         self.connectors_configs[connector['type']] = []
+                        self._implemented_connectors[connector['type']] = connector_class
                     if isinstance(connector_conf, dict):
                         connector_conf["name"] = connector['name']
                     self.connectors_configs[connector['type']].append({"name": connector['name'],
@@ -393,11 +397,6 @@ class TBGatewayService:
                         log.exception(e)
                         if connector is not None:
                             connector.close()
-
-    def _run_connector(self, connector_abs_path, connector_config_json):
-        subprocess.run(['python3', connector_abs_path, connector_config_json, self._config_dir],
-                       check=True,
-                       universal_newlines=True)
 
     def check_connector_configuration_updates(self):
         configuration_changed = False

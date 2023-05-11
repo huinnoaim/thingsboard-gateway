@@ -32,6 +32,8 @@ class TBLoggerHandler(logging.Handler):
                         'extension',
                         'converter',
                         'connector',
+                        'alarm',
+                        'hr',
                         'tb_connection'
                         ]
         for logger in self.loggers:

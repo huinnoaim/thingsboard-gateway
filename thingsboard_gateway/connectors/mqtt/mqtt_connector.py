@@ -30,7 +30,7 @@ from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 from paho.mqtt.client import Client, MQTTv31, MQTTv311, MQTTv5
 import logging
 
-log = logging.getLogger("mqtt_connector")
+log = logging.getLogger("connector")
 
 MQTT_VERSIONS = {
     3: MQTTv31,
@@ -158,8 +158,9 @@ class MqttConnector(Connector, Thread):
 
         self._on_message_queue = Queue()
         self._on_message_thread = Thread(name='On Message', target=self._process_on_message, daemon=True)
+        print('mqtt_connector on_message thread starting')
+        print(config)
         self._on_message_thread.start()
-        log.info('mqtt_connector on_message thread started', config)
 
     def is_filtering_enable(self, device_name):
         return self.__send_data_only_on_change

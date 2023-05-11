@@ -2,7 +2,7 @@ import math
 from scipy import signal as sci_sig
 import logging
 
-log = logging.getLogger("hr_detector")
+log = logging.getLogger("hr")
 
 _WINDOW_SEC = 0.160
 _MIN_RR = 0.2  # compare with 0.33

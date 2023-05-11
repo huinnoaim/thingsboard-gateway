@@ -18,10 +18,9 @@ from inspect import getmembers, isclass
 from logging import getLogger
 from os import listdir, path
 
-log = getLogger("tb_loader")
+log = getLogger("tb_connection")
 
 CONNECTORS_FOLDER = '/connectors'.replace('/', path.sep)
-DEB_INSTALLATION_EXTENSION_PATH = '/var/lib/thingsboard_gateway/extensions'.replace('/', path.sep)
 
 
 class TBModuleLoader:
@@ -32,9 +31,6 @@ class TBModuleLoader:
     def find_paths():
         root_path = path.abspath(path.dirname(path.dirname(__file__)))
         log.debug("Root path is: " + root_path)
-        if path.exists(DEB_INSTALLATION_EXTENSION_PATH):
-            log.debug("Debian installation extensions folder exists.")
-            TBModuleLoader.PATHS.append(DEB_INSTALLATION_EXTENSION_PATH)
         TBModuleLoader.PATHS.append(root_path + CONNECTORS_FOLDER)
 
     @staticmethod
@@ -52,7 +48,7 @@ class TBModuleLoader:
                 continue
 
             for file in listdir(current_extension_path):
-                if not file.startswith('__') or not file.endswith('.py'):
+                if not (file.startswith('__') or file.endswith('.py')):
                     continue
                 try:
                     module_spec = spec_from_file_location(module_name, current_extension_path + path.sep + file)

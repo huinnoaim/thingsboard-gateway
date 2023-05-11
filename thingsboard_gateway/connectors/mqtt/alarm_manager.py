@@ -8,7 +8,7 @@ from timeit import default_timer as timer
 import aiohttp
 import logging
 
-log = logging.getLogger("alarm_manager")
+log = logging.getLogger("alarm")
 
 TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
 regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0-9a-f]{12}$")
