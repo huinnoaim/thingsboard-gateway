@@ -975,8 +975,9 @@ class TBGatewayService:
                 else:
                     sleep(self.__min_pack_send_delay_ms)
             except Exception as e:
+                log.error('>>>> Thingsboard Client Connection Error!! Check Thingsboard!! <<<<')
                 log.exception(e)
-                sleep(1)
+                sleep(2)
 
     @StatisticsService.CollectAllSentTBBytesStatistics(start_stat_type='allBytesSentToTB')
     def __send_data(self, devices_data_in_event_pack):
