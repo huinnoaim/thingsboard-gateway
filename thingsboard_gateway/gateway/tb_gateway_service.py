@@ -16,6 +16,7 @@ import logging
 import logging.config
 import logging.handlers
 import multiprocessing.managers
+import time
 from signal import signal, SIGINT
 from os import listdir, path, stat, system, environ
 from queue import SimpleQueue
@@ -278,7 +279,8 @@ class TBGatewayService:
         log.info("The gateway has been stopped.")
         self.tb_client.disconnect()
         self.tb_client.stop()
-        self.manager.shutdown()
+        if self.manager:
+            self.manager.shutdown()
 
     def __process_deleted_gateway_devices(self, deleted_device_name: str):
         log.info("Received deleted gateway device notification: %s", deleted_device_name)

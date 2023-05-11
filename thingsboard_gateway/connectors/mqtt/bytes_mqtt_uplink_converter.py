@@ -6,7 +6,6 @@ import time
 import numpy as np
 from timeit import default_timer as timer
 import asyncio
-import aiohttp
 from re import findall
 from re import search
 
@@ -19,14 +18,14 @@ from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplink
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
+from thingsboard_gateway.connectors.mqtt.http_manager import HttpManager
 import logging
 
 log = logging.getLogger("converter")
 
 HR_CALC_RANGE_SEC = 10  # 10sec
 AI_INPUT_ECG_LENGTH = 15000  # 1min
-IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
-UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
+
 SENSOR_ECG_DATA_RECEIVE_SUCCEED = 'memo-web/socket/SENSOR_ECG_DATA_RECEIVE_SUCCEED'
 PAYLOAD = {
     'PARAM': {
@@ -50,7 +49,6 @@ log.debug(structure, types)
 
 BUFFER_TIMEOUT = 80
 # key: name, value: cache
-# stream_buffer = dict()
 ecg_cache = SafeCache()
 ttl_cache = SimpleCache('ttl', BUFFER_TIMEOUT)
 index_cache = SimpleCache('index', BUFFER_TIMEOUT)
@@ -241,47 +239,10 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def queuing_ecg(device_name, start_ts: int, ecg_list, ecg_index: int, loop):
-    field_ts = str(start_ts)
-    field_ecg = ecg_list
-    field_ecg_index = str(ecg_index)
-
-    # valid with 1m =  1x60
-    ecg_cache.ex_set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
-    index_cache.ex_set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
-    # print(index_cache)
-    # 0: ts, 1: index, 2: device name
-    index_list = filter(lambda d: d[2] == device_name, list(index_cache))
-    index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
-    # print(index_list)
-    if len(index_list) > 1:
-        last_ecg_index = int(index_list[1][1])
-        expected_index = last_ecg_index + 960
-        if expected_index != ecg_index:
-            log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
-
-    # 60s ttl
-    if 'ttl' not in ttl_cache.get(device_name, {}):
-        ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
-        log.debug('Now trigger AI--------')
-        # print(ai_input)
-        ai_input = fetch_ecg(device_name)
-        if len(ai_input) == AI_INPUT_ECG_LENGTH:
-            log.debug('Upload 15000 AI INPUT')
-            loop.run_until_complete(upload_ecg(device_name, ai_input))
-
-    ttl = ttl_cache.ttl(device_name, tag='ttl')
-    # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
-    # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
-    #     len(ecg_list)) + ',TTL:' + str(ttl))
-    # print(list(ecg_cache))
-    # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
-    # print(len(list(ecg_cache)))
-
-
 def fetch_ecg(device_name):
     # 0: ts, 1: index, 2: device name
     ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
     # print(list(map(lambda d: d[0], ai_input)))
     ai_input = list(map(lambda d: json.loads(d[1]), ai_input))
@@ -316,32 +277,15 @@ def calculate_hr(device_name):
     return hr
 
 
-async def upload_ecg(device_name, ecg_values):
-    async with aiohttp.ClientSession() as session:
-        body = {
-            "serialNumber": device_name,
-            "requestTimestamp": int(time.time()),
-            "requestSeconds": 60,
-            "ecgData": ecg_values
-        }
-        payload = json.dumps(body)
-        headers = {
-            'Content-Type': 'application/json',
-            'iomt-jwt': IOMT_JWT
-        }
-        async with session.post(UPLOAD_URL, headers=headers, data=payload) as response:
-            print("url:", UPLOAD_URL)
-            print("Status:", response.status)
-            print("Content-type:", response.headers['content-type'])
-            html = await response.text()
-            print("Body:", html[:30], "...")
-
-
 class BytesMqttUplinkConverter(MqttUplinkConverter):
-    def __init__(self, config):
+    def __init__(self, config, ai_queue, trigger_queue):
         self.__config = config.get('converter')
         self.__loop = asyncio.new_event_loop()
         self.__alarm_manager = AlarmManager()
+        self.__http_manager = HttpManager(ai_queue, trigger_queue)
+        global ecg_cache
+        global ttl_cache
+        global index_cache
 
     @property
     def config(self):
@@ -387,7 +331,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
             field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
 
-            queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index, self.__loop)
+            self.queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
 
             hr = calculate_hr(device_name)
 
@@ -402,3 +346,43 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         end_time = timer()
         log.debug('<<mqtt byte elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
         return dict_result
+
+    def queuing_ecg(self, device_name, start_ts: int, ecg_list, ecg_index: int):
+        field_ts = str(start_ts)
+        field_ecg = ecg_list
+        field_ecg_index = str(ecg_index)
+
+        # valid with 1m =  1x60
+        ecg_cache.ex_set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
+        index_cache.ex_set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
+        # print(index_cache)
+        # 0: ts, 1: index, 2: device name
+        index_list = filter(lambda d: d[2] == device_name, list(index_cache))
+        index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
+        # print(index_list)
+        if len(index_list) > 1:
+            last_ecg_index = int(index_list[1][1])
+            expected_index = last_ecg_index + 960
+            if expected_index != ecg_index:
+                log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
+
+        # 60s ttl
+        if not ttl_cache.has_key(device_name, tag='ttl'):
+            ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
+            log.debug('Now trigger AI--------')
+
+            ai_input = fetch_ecg(device_name)
+            log.debug('ecg size:' + str(len(ai_input)))
+            if len(ai_input) == AI_INPUT_ECG_LENGTH:
+                log.debug('Upload 15000 AI INPUT')
+                # self.__loop.run_until_complete(
+                self.__http_manager.upload_ecg(device_name, ai_input)
+                # )
+
+        ttl = ttl_cache.ttl(device_name, tag='ttl')
+        # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
+        # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
+        #     len(ecg_list)) + ',TTL:' + str(ttl))
+        # print(list(ecg_cache))
+        # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
+        # print(len(list(ecg_cache)))

@@ -152,6 +152,8 @@ class MqttConnector(Connector, Thread):
         self.daemon = True
 
         self.__msg_queue = Queue()
+        self.__ai_queue = Queue()
+        self.__trigger_queue = Queue()
         self.__workers_thread_pool = []
         self.__max_msg_number_for_worker = config['broker'].get('maxMessageNumberPerWorker', 10)
         self.__max_number_of_workers = config['broker'].get('maxNumberOfWorkers', 100)
@@ -299,7 +301,7 @@ class MqttConnector(Connector, Thread):
                     if module:
                         self.__log.debug('Converter %s for topic %s - found!', converter_class_name,
                                          mapping["topicFilter"])
-                        converter = module(mapping)
+                        converter = module(mapping, self.__ai_queue, self.__trigger_queue)
                     else:
                         self.__log.error("Cannot find converter for %s topic", mapping["topicFilter"])
                         continue
@@ -379,7 +381,9 @@ class MqttConnector(Connector, Thread):
             worker = MqttConnector.ConverterWorker(f"MqttConnector ConverterWorker-{worker_idx}",
                                                    self.__msg_queue,
                                                    self._save_converted_msg,
-                                                   self._client)
+                                                   self._client,
+                                                   self.__ai_queue,
+                                                   self.__trigger_queue)
             self.__workers_thread_pool.append(worker)
             worker.start()
 
@@ -470,12 +474,14 @@ class MqttConnector(Connector, Thread):
         log.info('Thingsboard Data is published')
 
     class ConverterWorker(Thread):
-        def __init__(self, name, incoming_queue, send_result, mqtt_client: Client):
+        def __init__(self, name, incoming_queue, send_result, mqtt_client: Client, ai_queue, trigger_queue):
             super().__init__()
             self.stopped = False
             self.setName(name)
             self.setDaemon(True)
             self.__msg_queue = incoming_queue
+            self.__ai_queue = ai_queue
+            self.__trigger_queue = trigger_queue
             self.in_progress = False
             self.__send_result = send_result
             self._client = mqtt_client
