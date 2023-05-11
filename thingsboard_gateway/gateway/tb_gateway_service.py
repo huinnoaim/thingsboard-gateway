@@ -881,13 +881,6 @@ class TBGatewayService:
                                                 daemon=True,
                                                 name=f"Send data to Thingsboard Worker Thread {i}"))
             data_transfer_threads[-1].start()
-        # self._send_thread1.start()
-        # self._send_thread2 = Thread(target=self.__read_data_from_storage, daemon=True,
-        #                         name="Send data to Thingsboard Thread 2")
-        # self._send_thread2.start()
-        # self._send_thread3 = Thread(target=self.__read_data_from_storage, daemon=True,
-        #                         name="Send data to Thingsboard Thread 3")
-        # self._send_thread3.start()
 
 
     def __read_data_from_storage(self):
