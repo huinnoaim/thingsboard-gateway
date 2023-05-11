@@ -312,7 +312,7 @@ def calculate_hr(device_name):
     # print(list(hr_input))
     # 250 samples/s
     hr = hr_detector.detect(hr_input, 250)
-    # print(device_name + ', HR: ' + str(hr))
+    log.debug(device_name + ', HR: ' + str(hr))
     return hr
 
 

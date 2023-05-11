@@ -17,15 +17,15 @@ import threading
 from time import sleep, time
 from ssl import CERT_REQUIRED, PROTOCOL_TLSv1_2
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+log = logging.getLogger("tb_connection")
+
 
 try:
     from tb_gateway_mqtt import TBGatewayMqttClient
 except ImportError:
-    print("tb-mqtt-client library not found - installing...")
+    log.warning("tb-mqtt-client library not found - installing...")
     TBUtility.install_package('tb-mqtt-client')
     from tb_gateway_mqtt import TBGatewayMqttClient
-
-log = logging.getLogger("tb_connection")
 
 
 class TBClient(threading.Thread):
@@ -157,7 +157,6 @@ class TBClient(threading.Thread):
             self.client._on_disconnect(client, userdata, result_code)
 
     def stop(self):
-        # self.disconnect()
         self.client.stop()
         self.__stopped = True
 
@@ -202,16 +201,16 @@ class TBClient(threading.Thread):
             log.exception(e)
             sleep(10)
 
-        # while not self.__stopped:
-        #     try:
-        #         if not self.__stopped:
-        #             sleep(.2)
-        #         else:
-        #             break
-        #     except KeyboardInterrupt:
-        #         self.__stopped = True
-        #     except Exception as e:
-        #         log.exception(e)
+        while not self.__stopped:
+            try:
+                if not self.__stopped:
+                    sleep(.2)
+                else:
+                    break
+            except KeyboardInterrupt:
+                self.__stopped = True
+            except Exception as e:
+                log.exception(e)
 
     def get_config_folder_path(self):
         return self.__config_folder_path
