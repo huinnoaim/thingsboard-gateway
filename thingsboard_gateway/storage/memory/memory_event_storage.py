@@ -12,6 +12,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+import sys
 from queue import Empty, Full, Queue
 
 from thingsboard_gateway.storage.event_storage import EventStorage, log
@@ -56,3 +57,6 @@ class MemoryEventStorage(EventStorage):
 
     def len(self):
         return self.__events_queue.qsize()
+
+    def size(self):
+        return sys.getsizeof(self.__events_queue.queue)

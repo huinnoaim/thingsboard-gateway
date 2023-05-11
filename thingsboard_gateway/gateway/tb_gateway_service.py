@@ -284,9 +284,15 @@ class TBGatewayService:
         self.__min_pack_send_delay_ms = self.__min_pack_send_delay_ms / 1000.0
         self.__min_pack_size_to_send = self.__config['thingsboard'].get('minPackSizeToSend', 50)
 
-        self._send_thread = Thread(target=self.__read_data_from_storage, daemon=True,
-                                   name="Send data to Thingsboard Thread")
-        self._send_thread.start()
+        self._send_thread1 = Thread(target=self.__read_data_from_storage, daemon=True,
+                                   name="Send data to Thingsboard Thread 1")
+        self._send_thread1.start()
+        self._send_thread2 = Thread(target=self.__read_data_from_storage, daemon=True,
+                                   name="Send data to Thingsboard Thread 2")
+        self._send_thread2.start()
+        self._send_thread3 = Thread(target=self.__read_data_from_storage, daemon=True,
+                                   name="Send data to Thingsboard Thread 3")
+        self._send_thread3.start()
 
         self.__device_filter_config = self.__config['thingsboard'].get('deviceFiltering', DEFAULT_DEVICE_FILTER)
         self.__device_filter = None
@@ -856,7 +862,7 @@ class TBGatewayService:
     def __send_data_pack_to_storage(self, data, connector_name):
         json_data = dumps(data)
         save_result = self._event_storage.put(json_data)
-        log.info(f'Events in MemoryStorage: {self._event_storage.len()}')
+        log.info(f'#Events in MemoryStorage: {self._event_storage.len()}, Sizeof MemoryStorage: {self._event_storage.size()}')
         if not save_result:
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],

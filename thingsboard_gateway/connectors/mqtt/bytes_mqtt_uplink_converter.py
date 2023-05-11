@@ -331,8 +331,8 @@ async def upload_ecg(device_name, ecg_values):
             print("url:", UPLOAD_URL)
             print("Status:", response.status)
             print("Content-type:", response.headers['content-type'])
-            html = await response.text()
-            print("Body:", html[:30], "...")
+            # html = await response.text()
+            # print("Body:", html[:30], "...")
 
 
 class BytesMqttUplinkConverter(MqttUplinkConverter):
