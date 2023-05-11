@@ -22,6 +22,15 @@ storage:
   type: memory
   read_records_count: 100
   max_records_count: 100000
+grpc:
+  enabled: false
+  serverPort: 9595
+  keepaliveTimeMs: 10000
+  keepaliveTimeoutMs: 5000
+  keepalivePermitWithoutCalls: true
+  maxPingsWithoutData: 0
+  minTimeBetweenPingsMs: 10000
+  minPingIntervalWithoutDataMs: 5000
 connectors:
   - name: Mosquitto Broker
     type: mqtt

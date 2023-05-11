@@ -26,6 +26,7 @@ from sys import getsizeof
 from threading import RLock, Thread
 from time import sleep, time
 
+import simplejson
 from simplejson import JSONDecodeError, dumps, load, loads
 from yaml import safe_load
 
@@ -373,24 +374,39 @@ class TBGatewayService:
     def _connect_with_connectors(self):
         for connector_type in self.connectors_configs:
             for connector_config in self.connectors_configs[connector_type]:
-                if self._implemented_connectors.get(connector_type.lower()) is not None:
-                    for config in connector_config["config"]:
-                        connector = None
-                        try:
-                            if connector_config["config"][config] is not None:
-                                connector = self._implemented_connectors[connector_type](self,
-                                                                                         connector_config["config"][
-                                                                                             config],
-                                                                                         connector_type)
-                                connector.setName(connector_config["name"])
-                                self.available_connectors[connector.get_name()] = connector
-                                connector.open()
-                            else:
-                                log.info("Config not found for %s", connector_type)
-                        except Exception as e:
-                            log.exception(e)
-                            if connector is not None:
-                                connector.close()
+                if not self._implemented_connectors.get(connector_type.lower()):
+                    connector_dir_abs = "/".join(self._config_dir.split("/")[:-2])
+                    connector_file_name = f'{connector_type}_connector.py'
+                    connector_abs_path = f'{connector_dir_abs}/grpc_connectors/{connector_type}/{connector_file_name}'
+                    connector_config_json = simplejson.dumps({
+                        **connector_config,
+                        'gateway': {
+                            'host': 'localhost',
+                            'port': self.__config['grpc']['serverPort']
+                        }
+                    })
+
+                    thread = Thread(target=self._run_connector, args=(connector_abs_path, connector_config_json,),
+                                    daemon=True, name='Separate DRPC Connector')
+                    thread.start()
+                    continue
+                for config in connector_config["config"]:
+                    connector = None
+                    try:
+                        if connector_config["config"][config] is not None:
+                            connector = self._implemented_connectors[connector_type](self,
+                                                                                     connector_config["config"][
+                                                                                         config],
+                                                                                     connector_type)
+                            connector.setName(connector_config["name"])
+                            self.available_connectors[connector.get_name()] = connector
+                            connector.open()
+                        else:
+                            log.info("Config not found for %s", connector_type)
+                    except Exception as e:
+                        log.exception(e)
+                        if connector is not None:
+                            connector.close()
 
     def _run_connector(self, connector_abs_path, connector_config_json):
         subprocess.run(['python3', connector_abs_path, connector_config_json, self._config_dir],
