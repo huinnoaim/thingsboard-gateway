@@ -284,15 +284,11 @@ class TBGatewayService:
         self.__min_pack_send_delay_ms = self.__min_pack_send_delay_ms / 1000.0
         self.__min_pack_size_to_send = self.__config['thingsboard'].get('minPackSizeToSend', 50)
 
-        self._send_thread1 = Thread(target=self.__read_data_from_storage, daemon=True,
-                                   name="Send data to Thingsboard Thread 1")
-        self._send_thread1.start()
-        self._send_thread2 = Thread(target=self.__read_data_from_storage, daemon=True,
-                                   name="Send data to Thingsboard Thread 2")
-        self._send_thread2.start()
-        self._send_thread3 = Thread(target=self.__read_data_from_storage, daemon=True,
-                                   name="Send data to Thingsboard Thread 3")
-        self._send_thread3.start()
+        self.__data_transfer_threads: list[Thread] = []
+        self.data_transfer_thread = Thread(target=self.read_data_from_storage,
+                                           daemon=True,
+                                           name="Send data to Thingsboard Main Thread")
+        self.data_transfer_thread.start()
 
         self.__device_filter_config = self.__config['thingsboard'].get('deviceFiltering', DEFAULT_DEVICE_FILTER)
         self.__device_filter = None
@@ -875,6 +871,24 @@ class TBGatewayService:
             for device in devices_data_in_event_pack:
                 devices_data_in_event_pack[device]["telemetry"] = []
                 devices_data_in_event_pack[device]["attributes"] = {}
+
+    def read_data_from_storage(self):
+        data_transfer_threads: list[Thread] = self.__data_transfer_threads
+        event_storage: MemoryEventStorage = self._event_storage
+
+        for i in range(5):
+            data_transfer_threads.append(Thread(target=self.__read_data_from_storage,
+                                                daemon=True,
+                                                name=f"Send data to Thingsboard Worker Thread {i}"))
+            data_transfer_threads[-1].start()
+        # self._send_thread1.start()
+        # self._send_thread2 = Thread(target=self.__read_data_from_storage, daemon=True,
+        #                         name="Send data to Thingsboard Thread 2")
+        # self._send_thread2.start()
+        # self._send_thread3 = Thread(target=self.__read_data_from_storage, daemon=True,
+        #                         name="Send data to Thingsboard Thread 3")
+        # self._send_thread3.start()
+
 
     def __read_data_from_storage(self):
         devices_data_in_event_pack = {}
