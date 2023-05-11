@@ -210,7 +210,8 @@ class TBGatewayService:
         self.main_handler.setTarget(self.remote_handler)
         self._default_connectors = DEFAULT_CONNECTORS
         self.__converted_data_queue = SimpleQueue()
-        self.__save_converted_data_thread = Thread(name="Save converted data", daemon=True,
+        self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
+                                                   daemon=True,
                                                    target=self.__send_to_storage)
         self.__save_converted_data_thread.start()
         self._implemented_connectors = {}
@@ -665,10 +666,9 @@ class TBGatewayService:
                             connector = None
                             try:
                                 if connector_config["config"][config] is not None:
-                                    connector = self._implemented_connectors[connector_type](self,
-                                                                                             connector_config["config"][
-                                                                                                 config],
-                                                                                             connector_type)
+                                    connector: Thread = self._implemented_connectors[connector_type](self,
+                                                                                                    connector_config["config"][config],
+                                                                                                    connector_type)
                                     connector.setName(connector_config["name"])
                                     self.available_connectors[connector.get_name()] = connector
                                     connector.open()
@@ -715,7 +715,9 @@ class TBGatewayService:
             self._load_connectors()
             self._connect_with_connectors()
 
-    def send_to_storage(self, connector_name, data):
+    def send_to_storage(self, connector_name, data) -> Status:
+        '''It put the converted data into its queue and returns a status.
+        '''
         try:
             device_valid = True
             if self.__device_filter:
@@ -854,6 +856,7 @@ class TBGatewayService:
     def __send_data_pack_to_storage(self, data, connector_name):
         json_data = dumps(data)
         save_result = self._event_storage.put(json_data)
+        log.info(f'Events in MemoryStorage: {self._event_storage.len()}')
         if not save_result:
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],
@@ -912,6 +915,7 @@ class TBGatewayService:
                                     self.check_size(devices_data_in_event_pack)
                                     devices_data_in_event_pack[current_event["deviceName"]]["attributes"].update(
                                         current_event["attributes"].items())
+
                         if devices_data_in_event_pack:
                             if not self.tb_client.is_connected():
                                 continue

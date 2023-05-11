@@ -29,6 +29,7 @@ from thingsboard_gateway.connectors.mqtt.mqtt_decorators import CustomCollectSta
 from thingsboard_gateway.tb_utility.tb_loader import TBModuleLoader
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 from thingsboard_gateway.gateway.statistics_service import StatisticsService
+from thingsboard_gateway.gateway.tb_gateway_service import TBGatewayService
 
 try:
     from paho.mqtt.client import Client
@@ -99,7 +100,7 @@ class MqttConnector(Connector, Thread):
     def __init__(self, gateway, config, connector_type):
         super().__init__()
 
-        self.__gateway = gateway  # Reference to TB Gateway
+        self.__gateway: TBGatewayService = gateway  # Reference to TB Gateway
         self._connector_type = connector_type  # Should be "mqtt"
         self.config = config  # mqtt.json contents
 
@@ -424,32 +425,32 @@ class MqttConnector(Connector, Thread):
             self.__log.debug("Successfully converted message from topic %s", topic)
 
     def __threads_manager(self):
-        worker_idx = len(self.__workers_thread_pool)
         if len(self.__workers_thread_pool) == 0:
-            worker = MqttConnector.ConverterWorker(f"MqttConnector ConverterWorker-{worker_idx}",
-                                                   self.__msg_queue,
-                                                   self._save_converted_msg,
-                                                   self._client)
+            worker = MqttConnector.ConverterWorker(name=f"MqttConnector ConverterWorker-{len(self.__workers_thread_pool)}",
+                                                   incoming_queue=self.__msg_queue,
+                                                   send_result=self._save_converted_msg,
+                                                   mqtt_client=self._client)
             self.__workers_thread_pool.append(worker)
             worker.start()
 
         number_of_needed_threads = round(self.__msg_queue.qsize() / self.__max_msg_number_for_worker, 0)
-        threads_count = len(self.__workers_thread_pool)
-        if number_of_needed_threads > threads_count < self.__max_number_of_workers:
-            thread = MqttConnector.ConverterWorker(
-                f"MqttConnector ConverterWorker-{worker_idx}-" + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)), self.__msg_queue,
-                self._save_converted_msg, self._client)
+        worker_name = f"MqttConnector ConverterWorker-{len(self.__workers_thread_pool)}-" + ''.join(random.choice(string.ascii_lowercase) for _ in range(5))
+        if number_of_needed_threads > len(self.__workers_thread_pool) < self.__max_number_of_workers:
+            thread = MqttConnector.ConverterWorker(name=worker_name,
+                                                   incoming_queue=self.__msg_queue,
+                                                   send_result=self._save_converted_msg,
+                                                   mqtt_client=self._client)
             self.__workers_thread_pool.append(thread)
             thread.start()
-        elif number_of_needed_threads < threads_count and threads_count > 1:
+
+        elif number_of_needed_threads < len(self.__workers_thread_pool) and 1 < len(self.__workers_thread_pool):
             worker: MqttConnector.ConverterWorker = self.__workers_thread_pool[-1]
             if not worker.in_progress:
                 worker.stopped = True
                 self.__workers_thread_pool.remove(worker)
 
-        self.__log.info(f">>> Num of MqttConverterWorker: {len(self.__workers_thread_pool)} <<<")
-        self.__log.info(f">>> Message Queue Size: {(self.__msg_queue.qsize())} <<<")
-        self.__log.info(f'>>> Current Message Handling Stats: {self.statistics} <<<')
+        self.__log.debug(f">>> MessageQueue Size: {(self.__msg_queue.qsize())},  # MqttConverterWorker: {len(self.__workers_thread_pool)} <<<")
+        self.__log.debug(f'>>> Current Message Handling Stats: {self.statistics} <<<')
 
     def _on_message(self, client, userdata, message):
         # print(message.payload)
