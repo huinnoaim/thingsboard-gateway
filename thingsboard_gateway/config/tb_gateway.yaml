@@ -1,5 +1,5 @@
 thingsboard:
-  host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
+  host: <host>
   port: 8081
   remoteShell: false
   remoteConfiguration: false
@@ -16,7 +16,7 @@ thingsboard:
   checkingDeviceActivity:
     checkDeviceInactivity: false
   security:
-    accessToken: m8tBNRYCf8vMKLzlKtfd
+    accessToken: <access token>
   qos: 1
 storage:
   type: memory
