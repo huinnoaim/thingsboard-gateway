@@ -20,7 +20,7 @@ thingsboard:
   qos: 1
 storage:
   type: memory
-  read_records_count: 100
+  read_records_count: 500
   max_records_count: 100000
 grpc:
   enabled: false
