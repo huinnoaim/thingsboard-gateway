@@ -606,7 +606,9 @@ class TBGatewayService:
                             self.check_size(devices_data_in_event_pack)
                             devices_data_in_event_pack[current_event["deviceName"]]["attributes"].update(
                                 current_event["attributes"].items())
+
                 if devices_data_in_event_pack:
+                    self.__send_data(devices_data_in_event_pack)
                     sleep(self.__min_pack_send_delay_ms)
 
                 if not self.tb_client.is_connected():
@@ -761,6 +763,47 @@ class TBGatewayService:
                     log.exception(e)
 
             log.debug("Saved connected devices.")
+
+    def __send_data(self, devices_data_in_event_pack):
+        try:
+            for device in devices_data_in_event_pack:
+                final_device_name = (
+                    device
+                    if self.__renamed_devices.get(device) is None
+                    else self.__renamed_devices[device]
+                )
+
+                if devices_data_in_event_pack[device].get("attributes"):
+                    if device == self.name or device == "currentThingsBoardGateway":
+                        self._published_events.put(
+                            self.tb_client.client.send_attributes(
+                                devices_data_in_event_pack[device]["attributes"]
+                            )
+                        )
+                    else:
+                        self._published_events.put(
+                            self.tb_client.client.gw_send_attributes(
+                                final_device_name,
+                                devices_data_in_event_pack[device]["attributes"],
+                            )
+                        )
+                if devices_data_in_event_pack[device].get("telemetry"):
+                    if device == self.name or device == "currentThingsBoardGateway":
+                        self._published_events.put(
+                            self.tb_client.client.send_telemetry(
+                                devices_data_in_event_pack[device]["telemetry"]
+                            )
+                        )
+                    else:
+                        self._published_events.put(
+                            self.tb_client.client.gw_send_telemetry(
+                                final_device_name,
+                                devices_data_in_event_pack[device]["telemetry"],
+                            )
+                        )
+                devices_data_in_event_pack[device] = {"telemetry": [], "attributes": {}}
+        except Exception as e:
+            log.exception(e)
 
     # GETTERS --------------------
     def ping(self):
