@@ -383,6 +383,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
 
         device_name = str(dict_result['deviceName'])
         field_ts = int(dict_result['telemetry'][0]['ts'])
+        log.info(f'Device: {device_name}, Data is converted')
 
         if 'ecgData' in dict_result['telemetry'][0]['values']:
             field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
