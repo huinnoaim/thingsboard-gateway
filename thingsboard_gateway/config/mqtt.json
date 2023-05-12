@@ -4,7 +4,7 @@
     "host": "mosquitto.karina-huinno.tk",
     "port": 1883,
     "version": 5,
-    "maxMessageNumberPerWorker": 50,
+    "maxMessageNumberPerWorker": 10,
     "maxNumberOfWorkers": 300,
     "sendDataOnlyOnChange": false
   },
