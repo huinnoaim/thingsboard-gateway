@@ -449,8 +449,7 @@ class MqttConnector(Connector, Thread):
                 worker.stopped = True
                 self.__workers_thread_pool.remove(worker)
 
-        self.__log.debug(f">>> MessageQueue Size: {(self.__msg_queue.qsize())},  # MqttConverterWorker: {len(self.__workers_thread_pool)} <<<")
-        self.__log.debug(f'>>> Current Message Handling Stats: {self.statistics} <<<')
+        self.__log.info(f'#ConvertWorkers: {len(self.__workers_thread_pool)}, #Queued Messages: {self.__msg_queue.qsize()}, Stats: {self.statistics}')
 
     def _on_message(self, client, userdata, message):
         # print(message.payload)

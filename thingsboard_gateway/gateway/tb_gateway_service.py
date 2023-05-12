@@ -858,7 +858,7 @@ class TBGatewayService:
     def __send_data_pack_to_storage(self, data, connector_name):
         json_data = dumps(data)
         save_result = self._event_storage.put(json_data)
-        log.info(f'#Events in MemoryStorage: {self._event_storage.len()}, Sizeof MemoryStorage: {self._event_storage.size()}')
+        log.info(f'#Queued Events: {self._event_storage.len()}')
         if not save_result:
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],
@@ -876,7 +876,7 @@ class TBGatewayService:
         data_transfer_threads: list[Thread] = self.__data_transfer_threads
         event_storage: MemoryEventStorage = self._event_storage
 
-        for i in range(5):
+        for i in range(10):
             data_transfer_threads.append(Thread(target=self.__read_data_from_storage,
                                                 daemon=True,
                                                 name=f"Send data to Thingsboard Worker Thread {i}"))
