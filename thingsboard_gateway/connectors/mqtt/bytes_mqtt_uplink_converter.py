@@ -8,10 +8,12 @@ import time
 from re import findall
 from re import search
 
+from cache3 import DiskCache, MiniCache, Cache
+
 import numpy as np
 import yaml
 from bin_parser import BinReader
-from cache3 import SafeCache, SimpleCache
+
 from simplejson import dumps
 
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
@@ -47,10 +49,11 @@ types = yaml.safe_load(open(path_types_yml).read())
 log.debug(structure, types)
 
 BUFFER_TIMEOUT = 80
+# Cache.ex_set(self, key: Any, value: Any, timeout: Time = None, tag: TG = None) -> bool:
 # key: name, value: cache
-ecg_cache = SafeCache()
-ttl_cache = SimpleCache('ttl', BUFFER_TIMEOUT)
-index_cache = SimpleCache('index', BUFFER_TIMEOUT)
+ecg_cache = Cache('ecg', BUFFER_TIMEOUT)
+ttl_cache = Cache('ttl', BUFFER_TIMEOUT)
+index_cache = Cache('index', BUFFER_TIMEOUT)
 
 
 def parse_data(expression, data):
@@ -238,9 +241,9 @@ def parse_device_info(topic, data, config, json_expression_config_name, topic_ex
     return result
 
 
-def fetch_ecg(device_name):
+def fetch_ecg(device_name: str):
     # 0: ts, 1: index, 2: device name
-    ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache))
+    ai_input = filter(lambda d: d[2] == device_name, list(ecg_cache.items()))
 
     ai_input = sorted(ai_input, key=lambda el: el[0], reverse=False)
     # print(list(map(lambda d: d[0], ai_input)))
@@ -258,7 +261,7 @@ def calculate_hr(device_name):
     # calculate HR
     # now_ms = int( time.time_ns() / 1000 )
     now_sec = int(time.time())
-    hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_sec - HR_CALC_RANGE_SEC)), list(ecg_cache))
+    hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_sec - HR_CALC_RANGE_SEC)), list(ecg_cache.items()))
     # print(len(list(hr_input)))
     # print(list(hr_input))
     # hr_input tuple = (timestamp, ecg, device_name)
@@ -338,19 +341,20 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
 
         return dict_result
 
-    def queuing_ecg(self, device_name, start_ts: int, ecg_list, ecg_index: int):
+    def queuing_ecg(self, device_name: str, start_ts: int, ecg_list: str, ecg_index: int):
         field_ts = str(start_ts)
         field_ecg = ecg_list
         field_ecg_index = str(ecg_index)
 
         # valid with 1m =  1x60
-        ecg_cache.ex_set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
-        index_cache.ex_set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
+        ecg_cache.set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
+        index_cache.set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
         # print(index_cache)
         # 0: ts, 1: index, 2: device name
-        index_list = filter(lambda d: d[2] == device_name, list(index_cache))
+        index_list = filter(lambda d: d[2] == device_name, list(index_cache.items()))
         index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
         # print(index_list)
+        # print('index queue len: ' + str(len(index_list)) + ', ' + str(index_list))
         if len(index_list) > 1:
             last_ecg_index = int(index_list[1][1])
             expected_index = last_ecg_index + 960

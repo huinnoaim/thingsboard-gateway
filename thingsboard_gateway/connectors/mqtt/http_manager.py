@@ -33,6 +33,7 @@ async def _upload_ecg(device_name, ecg_values):
         headers = {
             'Content-Type': 'application/json',
             'iomt-jwt': IOMT_JWT
+
         }
         async with session.post(UPLOAD_URL, headers=headers, data=payload) as response:
             print("url:", UPLOAD_URL)

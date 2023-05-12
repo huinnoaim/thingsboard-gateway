@@ -1,16 +1,9 @@
 requests==2.30.0
-jsonpath-rw
 regex==2023.5.5
-pip
-PyYAML
 simplejson==3.19.1
-PyInquirer
-pyfiglet
 termcolor==2.3.0
-cachetools
 cryptography==40.0.2
 numpy==1.24.3
-bin-parser
 cache3==0.4.3
 scipy==1.10.1
 tb-mqtt-client==1.4.1

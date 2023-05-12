@@ -14,6 +14,10 @@ _HR_CALC_WINDOW_SEC = 60
 
 
 def detect(signal, rate):
+    if len(signal) < 9:
+        log.error('signal length should bigger than 9')
+        return
+
     buffer, samples_delay = _filter_signal(signal, rate)
     buffer = _normalize(buffer)
 
@@ -72,6 +76,10 @@ def _high_pass_filter(signal):
 
 
 def _filter_signal(signal, rate):
+    if len(signal) < 9:
+        log.error('signal length should bigger than 9')
+        return
+
     if rate == _ARTICLE_SAMPLING_RATE:
         buffer = _low_pass_filter(signal)
         result = _high_pass_filter(buffer)
@@ -82,9 +90,9 @@ def _filter_signal(signal, rate):
         nyq = 0.5 * rate
         lower = _LOWER_FILTER_HZ / nyq
         upper = _UPPER_FILTER_HZ / nyq
-        b, a = sci_sig.butter(2, upper, btype="low")
+        [b, a] = sci_sig.butter(2, upper, 'low')
         sci_sig.filtfilt(b, a, signal)
-        b, a = sci_sig.butter(2, lower, btype="high")
+        [b, a] = sci_sig.butter(2, lower, 'high')
         result = sci_sig.filtfilt(b, a, signal)
         delay = int(0.06 * rate)
     return result, delay
