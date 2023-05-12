@@ -561,6 +561,7 @@ class TBGatewayService:
     def __read_data_from_storage(self):
         devices_data_in_event_pack = {}
         log.debug("Send data Thread has been started successfully.")
+        log.info(f'#Queued Events: {self._event_storage.len()}')
 
         while not self.stopped:
             try:

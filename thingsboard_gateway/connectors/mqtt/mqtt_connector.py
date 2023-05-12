@@ -396,6 +396,7 @@ class MqttConnector(Connector, Thread):
             if not worker.in_progress:
                 worker.stopped = True
                 self.__workers_thread_pool.remove(worker)
+        log.info(f'#ConvertWorkers: {len(self.__workers_thread_pool)}, #Queued Messages: {self.__msg_queue.qsize()}')
 
     def _on_message(self, client, userdata, message):
         # print(message.payload)
