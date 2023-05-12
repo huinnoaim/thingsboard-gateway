@@ -876,7 +876,7 @@ class TBGatewayService:
         data_transfer_threads: list[Thread] = self.__data_transfer_threads
         event_storage: MemoryEventStorage = self._event_storage
 
-        for i in range(10):
+        for i in range(3):
             data_transfer_threads.append(Thread(target=self.__read_data_from_storage,
                                                 daemon=True,
                                                 name=f"Send data to Thingsboard Worker Thread {i}"))
