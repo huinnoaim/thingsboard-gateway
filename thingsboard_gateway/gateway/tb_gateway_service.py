@@ -35,9 +35,7 @@ from thingsboard_gateway.gateway.constants import CONNECTED_DEVICES_FILENAME, CO
 from thingsboard_gateway.gateway.device_filter import DeviceFilter
 from thingsboard_gateway.gateway.duplicate_detector import DuplicateDetector
 from thingsboard_gateway.gateway.tb_client import TBClient
-from thingsboard_gateway.storage.file.file_event_storage import FileEventStorage
 from thingsboard_gateway.storage.memory.memory_event_storage import MemoryEventStorage
-from thingsboard_gateway.storage.sqlite.sqlite_event_storage import SQLiteEventStorage
 from thingsboard_gateway.tb_utility.tb_logger import TBLoggerHandler
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 from thingsboard_gateway.tb_utility.tb_loader import TBModuleLoader
@@ -175,9 +173,7 @@ class TBGatewayService:
         self.__save_converted_data_thread.start()
         self._implemented_connectors = {}
         self._event_storage_types = {
-            "memory": MemoryEventStorage,
-            "file": FileEventStorage,
-            "sqlite": SQLiteEventStorage,
+            "memory": MemoryEventStorage
         }
         self._event_storage = self._event_storage_types[self.__config["storage"]["type"]](self.__config["storage"])
         self.connectors_configs = {}

@@ -83,7 +83,7 @@ def _filter_signal(signal, rate):
         lower = _LOWER_FILTER_HZ / nyq
         upper = _UPPER_FILTER_HZ / nyq
         b, a = sci_sig.butter(2, upper, btype="low")
-        result = sci_sig.filtfilt(b, a, signal)
+        sci_sig.filtfilt(b, a, signal)
         b, a = sci_sig.butter(2, lower, btype="high")
         result = sci_sig.filtfilt(b, a, signal)
         delay = int(0.06 * rate)

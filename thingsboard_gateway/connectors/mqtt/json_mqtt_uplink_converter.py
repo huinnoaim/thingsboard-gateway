@@ -49,20 +49,20 @@ class JsonMqttUplinkConverter(MqttUplinkConverter):
                 print('start handle_alarm')
                 new_alarm = self.__alarm_manager.handle_alarm(topic, data)
                 if new_alarm:
-                    self.__http_manager.trigger_http(self.__http_manager, 'alarms', new_alarm)
+                    self.__http_manager.trigger_http('alarms', new_alarm)
 
             if topic.startswith('noti/alarm-rules'):
                 new_alarm_rule = self.__alarm_manager.upsert_alarm_rule(topic, data)
                 if new_alarm_rule:
-                    self.__http_manager.trigger_http(self.__http_manager, 'alarm_rule_changed', new_alarm_rule)
+                    self.__http_manager.trigger_http('alarm_rule_changed', new_alarm_rule)
             if topic.startswith('noti/alarm'):
                 new_alarm = self.__alarm_manager.upsert_alarm(topic, data)
                 if new_alarm:
-                    self.__http_manager.trigger_http(self.__http_manager, 'alarm_changed', new_alarm)
+                    self.__http_manager.trigger_http('alarm_changed', new_alarm)
             if topic.startswith('noti/exam'):
                 new_active_exam_sensor = self.__alarm_manager.upsert_active_exam_sensor(topic, data)
                 if new_active_exam_sensor:
-                    self.__http_manager.trigger_http(self.__http_manager, 'exam_sensor_changed', new_active_exam_sensor)
+                    self.__http_manager.trigger_http('exam_sensor_changed', new_active_exam_sensor)
         end_time = timer()
         log.debug('<<mqtt json converter elapsed time>>: ' + str(end_time - start_time))
         return None

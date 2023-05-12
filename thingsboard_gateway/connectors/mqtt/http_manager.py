@@ -1,17 +1,14 @@
 # HTTP Request Manager
 
-import re
 import asyncio
-from multiprocessing import SimpleQueue
-from signal import signal, SIGINT
-from threading import Thread, RLock
-import aiohttp
-import logging
 import json
+import logging
 import random
+import re
+from threading import Thread
 from time import sleep, time
-import concurrent.futures
-import requests
+
+import aiohttp
 
 log = logging.getLogger("http")
 
@@ -45,17 +42,6 @@ async def _upload_ecg(device_name, ecg_values):
             print("Body:", html[:30], "...")
 
 
-# class Singleton(type):
-#     _instances = {}
-#
-#     def __call__(cls, *args, **kwargs):
-#         if cls not in cls._instances:
-#             cls._instances[cls] = super(Singleton, cls) \
-#                 .__call__(*args, **kwargs)
-#         return cls._instances[cls]
-#
-#
-# class HttpManager(metaclass=Singleton):
 class HttpManager:
     def __init__(self, ai_queue, trigger_queue):
         print('start HTTP Manager')

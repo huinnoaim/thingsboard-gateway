@@ -1,25 +1,24 @@
+import asyncio
 import base64
 import json
+import logging
 import os
 import re
 import time
-import numpy as np
-from timeit import default_timer as timer
-import asyncio
 from re import findall
 from re import search
 
+import numpy as np
 import yaml
 from bin_parser import BinReader
-from simplejson import dumps
 from cache3 import SafeCache, SimpleCache
+from simplejson import dumps
 
-from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter
-from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 import thingsboard_gateway.connectors.mqtt.hr_detector as hr_detector
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 from thingsboard_gateway.connectors.mqtt.http_manager import HttpManager
-import logging
+from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter
+from thingsboard_gateway.tb_utility.tb_utility import TBUtility
 
 log = logging.getLogger("converter")
 
@@ -292,16 +291,10 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         return self.__config
 
     def convert(self, topic, data):
-        start_time = timer()
-
-        # Define the datatypes to be parsed
         datatypes = {'timeseries': 'telemetry'}
-
-        # Initialize the result dictionary with deviceName and telemetry
         dict_result = {'deviceName': '', 'telemetry': []}
 
         try:
-            # Process each datatype in the datatypes dictionary
             for datatype, key in datatypes.items():
                 dict_result[key] = []
                 for config in self.__config.get(datatype, []):
@@ -343,8 +336,6 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             log.debug(alarm)
             dict_result['alarm'] = alarm
 
-        # end_time = timer()
-        # log.debug('<<mqtt byte elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
         return dict_result
 
     def queuing_ecg(self, device_name, start_ts: int, ecg_list, ecg_index: int):
@@ -379,7 +370,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
                 self.__http_manager.upload_ecg(device_name, ai_input)
                 # )
 
-        ttl = ttl_cache.ttl(device_name, tag='ttl')
+        ttl_cache.ttl(device_name, tag='ttl')
         # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
         # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
         #     len(ecg_list)) + ',TTL:' + str(ttl))

@@ -1,12 +1,9 @@
 # Alarm Rule Engine and Manager
 
-import re
-import json
-import random
 import asyncio
-from timeit import default_timer as timer
-import aiohttp
 import logging
+import random
+import re
 
 log = logging.getLogger("alarm")
 
