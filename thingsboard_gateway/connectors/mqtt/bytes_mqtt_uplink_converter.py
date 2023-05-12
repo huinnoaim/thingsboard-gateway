@@ -266,7 +266,7 @@ def queuing_ecg(device_name, start_ts: int, ecg_list, ecg_index: int, loop):
         ai_input = fetch_ecg(device_name)
         if len(ai_input) == AI_INPUT_ECG_LENGTH:
             log.info('Upload 15000 AI INPUT')
-            # loop.run_until_complete(upload_ecg(device_name, ai_input))
+            loop.run_until_complete(upload_ecg(device_name, ai_input))
 
     ttl = ttl_cache.ttl(device_name, tag='ttl')
     # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
