@@ -191,47 +191,47 @@ class AlarmManager(metaclass=Singleton):
             'hrAlarmContent': content,
             'hrLimitContent': limit_content,
         }
-        log.info(result)
+        # log.info(result)
         return result
 
     def find_alarms_if_met_condition(self, dict_result):
-        log.info('check_alarm_condition')
-        start_time = timer()
+        # log.info('check_alarm_condition')
+        # start_time = timer()
 
         telemetry_data = dict_result.get('telemetry', [{}])
         # log.info(json.dumps(telemetry_data))
 
         hr = telemetry_data[0].get('values', {}).get('hr', None)
-        log.info(hr)
-        if hr is None:
-            end_time = timer()
-            log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
-            return None
+        # log.info(hr)
+        if not hr:
+            # end_time = timer()
+            # log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
+            return
 
         serial_number = dict_result['deviceName']
-        log.info(serial_number)
+        # log.info(serial_number)
         existing_exam = next((elem for elem in self.__active_exam_sensors if elem['serial_number'] == serial_number),
                              None)
-        if existing_exam is None:
-            log.debug('no existing_exam')
-            end_time = timer()
-            log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
-            return None
+        if not existing_exam:
+            # log.debug('no existing_exam')
+            # end_time = timer()
+            # log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
+            return
 
-        log.debug(existing_exam)
+        # log.debug(existing_exam)
 
         matching_rules = [elem for elem in self.__alarm_rules if elem['exam_ids'] in ['*', existing_exam['exam_id']]]
-        log.info(matching_rules)
+        # log.info(matching_rules)
 
         # loop per matching rules
         # limits, pmc_volume, pm_volume, hr, spo2, temp, nbp_sys, nbp_dia, mean_arterial, signal_type
         alarm = next((elem for elem in matching_rules if self.check_hr_alarm_limit(elem, hr) is not None), None)
-        if alarm is not None:
+        if alarm:
             alarm['hospital_id'] = existing_exam['hospital_id']
             alarm['ward_id'] = existing_exam['ward_id']
             alarm['exam_id'] = existing_exam['exam_id']
 
-        end_time = timer()
-        log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
+        # end_time = timer()
+        # log.info('<<find_alarms_if_met_condition ellipse  time>>: ' + str(end_time - start_time))
 
         return alarm

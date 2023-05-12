@@ -367,7 +367,7 @@ class MqttConnector(Connector, Thread):
     def put_data_to_convert(self, converter, message, content) -> bool:
         if not self.__msg_queue.full():
             self.__msg_queue.put((converter.convert, message.topic, content), True, 100)
-            self.__log.info('Data for converting is added to queue')
+            # self.__log.info('Data for converting is added to queue')
             return True
         return False
 
@@ -376,13 +376,8 @@ class MqttConnector(Connector, Thread):
             self.__log.debug("Successfully converted message from topic %s", topic)
 
     def __threads_manager(self):
-        worker_idx = len(self.__workers_thread_pool)
         if len(self.__workers_thread_pool) == 0:
-            worker = MqttConnector.ConverterWorker(f"MqttConnector ConverterWorker-{worker_idx}",
-                                                   self.__msg_queue,
-                                                   self._save_converted_msg,
-                                                   self._client,
-                                                   self.__ai_queue,
+            worker = MqttConnector.ConverterWorker("Main", self.__msg_queue, self._save_converted_msg, self._client, self.__ai_queue,
                                                    self.__trigger_queue)
             self.__workers_thread_pool.append(worker)
             worker.start()
@@ -391,8 +386,9 @@ class MqttConnector(Connector, Thread):
         threads_count = len(self.__workers_thread_pool)
         if number_of_needed_threads > threads_count < self.__max_number_of_workers:
             thread = MqttConnector.ConverterWorker(
-                f"MqttConnector ConverterWorker-{worker_idx}-" + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)), self.__msg_queue,
-                self._save_converted_msg, self._client)
+                "Worker " + ''.join(random.choice(string.ascii_lowercase) for _ in range(5)), self.__msg_queue,
+                self._save_converted_msg, self._client, self.__ai_queue,
+                self.__trigger_queue)
             self.__workers_thread_pool.append(thread)
             thread.start()
         elif number_of_needed_threads < threads_count and threads_count > 1:

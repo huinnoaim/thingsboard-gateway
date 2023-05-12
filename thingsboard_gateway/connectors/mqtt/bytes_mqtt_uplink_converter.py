@@ -343,8 +343,8 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             log.debug(alarm)
             dict_result['alarm'] = alarm
 
-        end_time = timer()
-        log.debug('<<mqtt byte elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
+        # end_time = timer()
+        # log.debug('<<mqtt byte elapsed time>>: ' + str(end_time - start_time))  # Time in seconds, e.g. 5.38091952400282
         return dict_result
 
     def queuing_ecg(self, device_name, start_ts: int, ecg_list, ecg_index: int):

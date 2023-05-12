@@ -88,10 +88,10 @@ class HttpManager:
                 sleep(.2)
 
     def trigger_http(self, url_path, body):
-        self.__trigger_queue.put({url_path, body})
+        self.__trigger_queue.put((url_path, body))
 
     def upload_ecg(self, device_name, ecg_values):
-        self.__async_queue.put({device_name, ecg_values})
+        self.__async_queue.put((device_name, ecg_values))
 
     @staticmethod
     async def _trigger_http(url_path, body):
