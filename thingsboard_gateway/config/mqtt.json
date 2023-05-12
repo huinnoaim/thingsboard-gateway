@@ -5,7 +5,7 @@
     "port": 1883,
     "version": 5,
     "maxMessageNumberPerWorker": 1,
-    "maxNumberOfWorkers": 500,
+    "maxNumberOfWorkers": 4000,
     "sendDataOnlyOnChange": false
   },
   "mapping": [
