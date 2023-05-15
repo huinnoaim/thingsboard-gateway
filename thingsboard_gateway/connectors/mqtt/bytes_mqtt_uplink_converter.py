@@ -169,7 +169,7 @@ def parse_payload(data):
             'meanArterialPressure': params_slice[3],
             'timestamp': params_slice[4],
         }
-        return data
+        return {'nbp': data}
     else:
         is_encrypted = params_slice[1]
         if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
