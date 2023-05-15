@@ -817,6 +817,7 @@ class TBGatewayService:
     def __send_data_pack_to_storage(self, data, connector_name):
         json_data = dumps(data)
         save_result = self._event_storage.put(json_data)
+        log.info(f'#Queued Events: {self._event_storage.len()}')
         if not save_result:
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],
@@ -844,7 +845,6 @@ class TBGatewayService:
     def __read_data_from_storage(self):
         devices_data_in_event_pack = {}
         log.debug("Send data Thread has been started successfully.")
-        log.info(f'#Queued Events: {self._event_storage.len()}')
 
         while not self.stopped:
             try:
