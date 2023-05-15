@@ -317,6 +317,7 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
 
         # Extract the device name from the telemetry data
         dict_result['deviceName'] = dict_result['telemetry'][0]['values']['serialNumber']
+        log.info(f"Device: {dict_result['deviceName']}, Data is converted")
 
         # log.debug('Converted data: %s', dict_result)
 
