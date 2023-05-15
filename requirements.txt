@@ -1,7 +1,12 @@
 requests==2.30.0
 regex==2023.5.5
+pip
 simplejson==3.19.1
+PyInquirer
+pyfiglet
 termcolor==2.3.0
+grpcio>=1.51.1
+protobuf<=3.20
 cryptography==40.0.2
 numpy==1.24.3
 cache3==0.4.3

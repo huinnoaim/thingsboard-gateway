@@ -4,7 +4,7 @@
     "host": "mosquitto.karina-huinno.tk",
     "port": 1883,
     "version": 5,
-    "maxMessageNumberPerWorker": 50,
+    "maxMessageNumberPerWorker": 2,
     "maxNumberOfWorkers": 300,
     "sendDataOnlyOnChange": false
   },
@@ -70,6 +70,16 @@
         "timeout": 60000,
         "exams": []
       }
+    }
+  ],
+  "attributeRequests": [
+    {
+      "retain": false,
+      "topicFilter": "v1/devices/me/attributes/request",
+      "deviceNameJsonExpression": "${serialNumber}",
+      "attributeNameJsonExpression": "${versionAttribute}, ${pduAttribute}",
+      "topicExpression": "devices/${deviceName}/attrs",
+      "valueExpression": "${attributeKey}: ${attributeValue}"
     }
   ]
 }

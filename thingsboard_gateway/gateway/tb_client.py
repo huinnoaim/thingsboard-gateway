@@ -17,15 +17,15 @@ import threading
 from time import sleep, time
 from ssl import CERT_REQUIRED, PROTOCOL_TLSv1_2
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
-log = logging.getLogger("tb_connection")
-
 
 try:
     from tb_gateway_mqtt import TBGatewayMqttClient
 except ImportError:
-    log.warning("tb-mqtt-client library not found - installing...")
+    print("tb-mqtt-client library not found - installing...")
     TBUtility.install_package('tb-mqtt-client')
     from tb_gateway_mqtt import TBGatewayMqttClient
+
+log = logging.getLogger("tb_connection")
 
 
 class TBClient(threading.Thread):
@@ -131,7 +131,7 @@ class TBClient(threading.Thread):
         return self.__is_connected
 
     def _on_connect(self, client, userdata, flags, result_code, *extra_params):
-        log.debug('TB client %s connected to ThingsBoard', str(client))
+        log.info('TB client %s connected to ThingsBoard', str(client))
         if result_code == 0:
             self.__is_connected = True
         # pylint: disable=protected-access
@@ -143,7 +143,7 @@ class TBClient(threading.Thread):
             log.info(
                 "TB client %s has been disconnected. Current client for connection is: %s",
                 str(client),
-                str(self.client.client)
+                str(self.client._client)
             )
             client.disconnect()
             client.loop_stop()
@@ -176,14 +176,8 @@ class TBClient(threading.Thread):
 
     def run(self):
         keep_alive = self.__config.get("keep_alive", 120)
-        if self.__stopped:
-            return
-
-        while self.client.is_connected():
-            sleep(.2)
-
         try:
-            while not self.client.is_connected():
+            while not self.client.is_connected() and not self.__stopped:
                 if not self.__paused:
                     if self.__stopped:
                         break
@@ -191,12 +185,13 @@ class TBClient(threading.Thread):
                     try:
                         self.client.connect(keepalive=keep_alive,
                                             min_reconnect_delay=self.__min_reconnect_delay)
-                    except ConnectionRefusedError:
-                        log.warning('ConnectionRefusedError')
+                        log.debug('connected')
+                    except ConnectionRefusedError as e:
+                        log.error('ConnectionRefusedError', e)
                         pass
                     except Exception as e:
-                        log.error(e)
-                sleep(3)
+                        log.exception(e)
+                sleep(1)
         except Exception as e:
             log.exception(e)
             sleep(10)

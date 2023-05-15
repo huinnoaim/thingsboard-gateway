@@ -1,10 +1,12 @@
 thingsboard:
-  host: <host>
+  host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
   port: 8081
   remoteShell: false
   remoteConfiguration: false
   statistics:
     enable: false
+    statsSendPeriodInSeconds: 3600
+    configuration: statistics/statistics_linux.json
   deviceFiltering:
     enable: false
     filterFile: list.json
@@ -15,12 +17,14 @@ thingsboard:
   handleDeviceRenaming: true
   checkingDeviceActivity:
     checkDeviceInactivity: false
+    inactivityTimeoutSeconds: 120
+    inactivityCheckPeriodSeconds: 10
   security:
-    accessToken: <access token>
+    accessToken: GPY5cq6i6ZNY1SJap5pR
   qos: 1
 storage:
   type: memory
-  read_records_count: 100
+  read_records_count: 500
   max_records_count: 100000
 grpc:
   enabled: false

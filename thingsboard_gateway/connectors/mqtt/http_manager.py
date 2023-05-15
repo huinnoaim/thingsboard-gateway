@@ -1,6 +1,6 @@
 # HTTP Request Manager
 
-import asyncio
+import requests
 import json
 import logging
 import random
@@ -21,26 +21,24 @@ TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
 regex_uuid = re.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[4-9a-f]{4}-[89ab-cd ef]{3}-[0-9a-f]{12}$")
 
 
-async def _upload_ecg(device_name, ecg_values):
-    async with aiohttp.ClientSession() as session:
-        body = {
-            "serialNumber": device_name,
-            "requestTimestamp": int(time()),
-            "requestSeconds": 60,
-            "ecgData": ecg_values
-        }
-        payload = json.dumps(body)
-        headers = {
-            'Content-Type': 'application/json',
-            'iomt-jwt': IOMT_JWT
-
-        }
-        async with session.post(UPLOAD_URL, headers=headers, data=payload) as response:
-            print("url:", UPLOAD_URL)
-            print("Status:", response.status)
-            print("Content-type:", response.headers['content-type'])
-            html = await response.text()
-            print("Body:", html[:30], "...")
+def _upload_ecg(device_name, ecg_values):
+    body = {
+        "serialNumber": device_name,
+        "requestTimestamp": int(time()),
+        "requestSeconds": 60,
+        "ecgData": ecg_values
+    }
+    payload = json.dumps(body)
+    headers = {
+        'Content-Type': 'application/json',
+        'iomt-jwt': IOMT_JWT
+    }
+    response = requests.post(UPLOAD_URL, headers=headers, data=payload)
+    print("url:", UPLOAD_URL)
+    print("Status:", response.status_code)
+    print("Content-type:", response.headers['content-type'])
+    html = response.text
+    print("Body:", html[:30], "...")
 
 
 class HttpManager:
@@ -50,7 +48,6 @@ class HttpManager:
         self.stopped = False
         self.__async_queue = ai_queue
         self.__trigger_queue = trigger_queue
-        self.__loop = asyncio.new_event_loop()
         # start HTTP request handler
         self._http_ai_thread = Thread(target=self._send_ecg_to_ai, daemon=True, name="Send ECG to AI Server")
         self._http_ai_thread.start()
@@ -64,13 +61,10 @@ class HttpManager:
 
     def _send_ecg_to_ai(self):
         print("Send HTTP AI sending Thread has been started successfully.")
-
-        while not self.stopped:
+        while True:
             if not self.__async_queue.empty():
-                self.in_progress = True
                 device_name, ecg_values = self.__async_queue.get()
                 _upload_ecg(device_name, ecg_values)
-                self.in_progress = False
             else:
                 sleep(.2)
 
@@ -80,30 +74,19 @@ class HttpManager:
     def upload_ecg(self, device_name, ecg_values):
         self.__async_queue.put((device_name, ecg_values))
 
-    @staticmethod
-    async def _trigger_http(url_path, body):
-        print('trigger_http:' + url_path)
-        print('body:' + json.dumps(body))
-        async with aiohttp.ClientSession() as session:
-            payload = json.dumps(body)
-            headers = {
-                'Content-Type': 'application/json'
-            }
-            async with session.post(TRIGGER_BASE_URL + url_path, headers=headers, data=payload) as response:
-                print("url:", TRIGGER_BASE_URL + url_path)
-                print("Status:", response.status)
-                print("Content-type:", response.headers['content-type'])
-                html = await response.text()
-                print("Body:", html[:30], "...")
-
     def _trigger_noti_to_server(self):
-        print("Send HTTP Trigger Thread has been started successfully.")
-
-        while not self.stopped:
+        while True:
             if not self.__trigger_queue.empty():
-                self.in_progress = True
                 url_path, body = self.__trigger_queue.get()
-                self._trigger_http(url_path, body)
-                self.in_progress = False
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                with requests.Session() as session:
+                    response = session.post(TRIGGER_BASE_URL + url_path, headers=headers, data=json.dumps(body))
+                    print("url:", TRIGGER_BASE_URL + url_path)
+                    print("Status:", response.status_code)
+                    print("Content-type:", response.headers['content-type'])
+                    html = response.text
+                    print("Body:", html[:30], "...")
             else:
                 sleep(.2)
