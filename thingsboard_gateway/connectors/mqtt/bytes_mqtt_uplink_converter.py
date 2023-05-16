@@ -162,14 +162,16 @@ def parse_payload(data):
         return data
     elif operation[5:] == 'nbp':
         data = {
-            'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
-            'serialNumber': serial_number,
-            'systolic': params_slice[1],
-            'diastolic': params_slice[2],
-            'meanArterialPressure': params_slice[3],
-            'timestamp': params_slice[4],
+            'nbp': {
+                'type': SENSOR_ECG_DATA_RECEIVE_SUCCEED,
+                'serialNumber': serial_number,
+                'systolic': params_slice[1],
+                'diastolic': params_slice[2],
+                'meanArterialPressure': params_slice[3],
+                'timestamp': params_slice[4],
+            }
         }
-        return {'nbp': data}
+        return data
     else:
         is_encrypted = params_slice[1]
         if is_encrypted != PAYLOAD["PARAM"]["ENCRYPTED"] or operation != PAYLOAD["PARAM"]["MONITORING"]:
