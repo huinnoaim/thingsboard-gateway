@@ -13,6 +13,7 @@
 #     limitations under the License.
 from timeit import default_timer as timer
 from thingsboard_gateway.gateway.constants import SEND_ON_CHANGE_PARAMETER
+import multiprocessing as mp
 from thingsboard_gateway.connectors.mqtt.mqtt_uplink_converter import MqttUplinkConverter
 from thingsboard_gateway.connectors.mqtt.alarm_manager import AlarmManager
 from thingsboard_gateway.connectors.mqtt.http_manager import HttpManager
@@ -22,7 +23,7 @@ log = logging.getLogger("converter")
 
 
 class JsonMqttUplinkConverter(MqttUplinkConverter):
-    def __init__(self, config, ai_queue, trigger_queue):
+    def __init__(self, config, ai_queue: mp.Queue, trigger_queue: mp.Queue):
         self.__config = config.get('converter')
         self.__send_data_on_change = self.__config.get(SEND_ON_CHANGE_PARAMETER)
         self.__alarm_manager = AlarmManager()

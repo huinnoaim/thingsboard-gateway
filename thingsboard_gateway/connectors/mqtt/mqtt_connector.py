@@ -14,6 +14,7 @@
 
 import random
 import string
+import multiprocessing as mp
 from queue import Queue
 from re import fullmatch, match, search
 from threading import Thread
@@ -179,8 +180,8 @@ class MqttConnector(Connector, Thread):
         self.daemon = True
 
         self.__msg_queue = Queue()
-        self.__ai_queue = Queue()
-        self.__trigger_queue = Queue()
+        self.__ai_queue = mp.Queue()
+        self.__trigger_queue = mp.Queue()
         self.__workers_thread_pool = []
         self.__max_msg_number_for_worker = config['broker'].get('maxMessageNumberPerWorker', 10)
         self.__max_number_of_workers = config['broker'].get('maxNumberOfWorkers', 100)
