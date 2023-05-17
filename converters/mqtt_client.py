@@ -16,7 +16,7 @@ logger = logging.getLogger(__file__)
 
 def get_client(fpath: Union[Path, None] = None) -> TBMqttClient:
     dirname = path.dirname(path.abspath(__file__))
-    cfg_file = dirname + '/config/tb_client.yaml'.replace('/', path.sep)
+    cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
     cfg_file = cfg_file if fpath is None else fpath
 
     with open(cfg_file) as general_config:
