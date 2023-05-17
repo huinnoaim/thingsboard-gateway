@@ -311,8 +311,12 @@ class MqttConnector(Connector, Thread):
                 try:
                     # Load converter for this mapping entry ------------------------------------------------------------
                     # mappings are guaranteed to have topicFilter and converter fields. See __init__
+                    # default_converters = {
+                    #     "json": "JsonMqttUplinkConverter",
+                    #     "bytes": "BytesMqttUplinkConverter"
+                    # }
+
                     default_converters = {
-                        "json": "JsonMqttUplinkConverter",
                         "bytes": "BytesMqttUplinkConverter"
                     }
 

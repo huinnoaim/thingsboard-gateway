@@ -15,7 +15,7 @@
 import logging
 import logging.config
 import logging.handlers
-import multiprocessing.managers
+import multiprocessing as mp
 from signal import signal, SIGINT
 import subprocess
 from os import execv, listdir, path, pathsep, stat, system, environ
@@ -101,7 +101,7 @@ def get_env_variables():
     return converted_env_variables
 
 
-class GatewayManager(multiprocessing.managers.BaseManager):
+class GatewayManager(mp.managers.BaseManager):
     def __init__(self, address=None, authkey=b''):
         super().__init__(address=address, authkey=authkey)
         self.gateway = None
@@ -182,7 +182,7 @@ class TBGatewayService:
         self.remote_handler = TBLoggerHandler(self)
         self.main_handler.setTarget(self.remote_handler)
         self._default_connectors = DEFAULT_CONNECTORS
-        self.__converted_data_queue = SimpleQueue()
+        self.__converted_data_queue = mp.Queue()
         self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
                                                    daemon=True,
                                                    target=self.__send_to_storage)
