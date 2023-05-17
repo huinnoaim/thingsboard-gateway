@@ -282,7 +282,6 @@ def calculate_hr(device_name):
 class BytesMqttUplinkConverter(MqttUplinkConverter):
     def __init__(self, config, ai_queue, trigger_queue):
         self.__config = config.get('converter')
-        self.__loop = asyncio.new_event_loop()
         self.__alarm_manager = AlarmManager()
         self.__http_manager = HttpManager(ai_queue, trigger_queue)
         global ecg_cache
@@ -324,61 +323,59 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         device_name = str(dict_result['deviceName'])
         field_ts = int(dict_result['telemetry'][0]['ts'])
 
-        # if 'ecgData' in dict_result['telemetry'][0]['values']:
-        #     field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
-        #     field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
+        if 'ecgData' in dict_result['telemetry'][0]['values']:
+            field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
+            field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
 
-        #     self.queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
-
+            self.queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
         #     hr = calculate_hr(device_name)
-
         #     dict_result['telemetry'][0]['values']['hr'] = hr
 
-        # # check alarm
-        # alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
-        # if alarm is not None:
-        #     log.debug(alarm)
-        #     dict_result['alarm'] = alarm
+        # check alarm
+        alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
+        if alarm is not None:
+            log.debug(alarm)
+            dict_result['alarm'] = alarm
 
         return dict_result
 
-    # def queuing_ecg(self, device_name: str, start_ts: int, ecg_list: str, ecg_index: int):
-    #     field_ts = str(start_ts)
-    #     field_ecg = ecg_list
-    #     field_ecg_index = str(ecg_index)
+    def queuing_ecg(self, device_name: str, start_ts: int, ecg_list: str, ecg_index: int):
+        field_ts = str(start_ts)
+        field_ecg = ecg_list
+        field_ecg_index = str(ecg_index)
 
-    #     # valid with 1m =  1x60
-    #     ecg_cache.set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
-    #     index_cache.set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
-    #     # print(index_cache)
-    #     # 0: ts, 1: index, 2: device name
-    #     index_list = filter(lambda d: d[2] == device_name, list(index_cache.items()))
-    #     index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
-    #     # print(index_list)
-    #     # print('index queue len: ' + str(len(index_list)) + ', ' + str(index_list))
-    #     if len(index_list) > 1:
-    #         last_ecg_index = int(index_list[1][1])
-    #         expected_index = last_ecg_index + 960
-    #         if expected_index != ecg_index:
-    #             log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
+        # valid with 1m =  1x60
+        ecg_cache.set(field_ts, field_ecg, timeout=BUFFER_TIMEOUT, tag=device_name)
+        index_cache.set(field_ts, field_ecg_index, timeout=BUFFER_TIMEOUT, tag=device_name)
+        # print(index_cache)
+        # 0: ts, 1: index, 2: device name
+        index_list = filter(lambda d: d[2] == device_name, list(index_cache.items()))
+        index_list = sorted(index_list, key=lambda el: el[0], reverse=True)
+        # print(index_list)
+        # print('index queue len: ' + str(len(index_list)) + ', ' + str(index_list))
+        if len(index_list) > 1:
+            last_ecg_index = int(index_list[1][1])
+            expected_index = last_ecg_index + 960
+            if expected_index != ecg_index:
+                log.warning('MISSING ECG: expected: ' + str(expected_index) + ', received: ' + str(ecg_index))
 
-    #     # 60s ttl
-    #     if not ttl_cache.has_key(device_name, tag='ttl'):
-    #         ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
-    #         log.debug('Now trigger AI--------')
+        # 60s ttl
+        if not ttl_cache.has_key(device_name, tag='ttl'):
+            ttl_cache.set(device_name, 'ttl', timeout=BUFFER_TIMEOUT, tag='ttl')
+            log.debug('Now trigger AI--------')
 
-    #         ai_input = fetch_ecg(device_name)
-    #         log.debug('ecg size:' + str(len(ai_input)))
-    #         if len(ai_input) == AI_INPUT_ECG_LENGTH:
-    #             log.debug('Upload 15000 AI INPUT')
-    #             # self.__loop.run_until_complete(
-    #             self.__http_manager.upload_ecg(device_name, ai_input)
-    #             # )
+            ai_input = fetch_ecg(device_name)
+            log.debug('ecg size:' + str(len(ai_input)))
+            if len(ai_input) == AI_INPUT_ECG_LENGTH:
+                log.debug('Upload 15000 AI INPUT')
+                # self.__loop.run_until_complete(
+                self.__http_manager.upload_ecg(device_name, ai_input)
+                # )
 
-    #     ttl_cache.ttl(device_name, tag='ttl')
-    #     # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
-    #     # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
-    #     #     len(ecg_list)) + ',TTL:' + str(ttl))
-    #     # print(list(ecg_cache))
-    #     # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
-    #     # print(len(list(ecg_cache)))
+        ttl_cache.ttl(device_name, tag='ttl')
+        # 0030T0000200 - ts:1678230848000, ecg_index:12248640, ecg_list:5760
+        # log.debug(device_name + ' - ts:' + field_ts + ', ecg_index:' + str(ecg_index) + ', ecg_list_len:' + str(
+        #     len(ecg_list)) + ',TTL:' + str(ttl))
+        # print(list(ecg_cache))
+        # print('ECG cache len ' + device_name + ' : ' + str(len(list(ecg_cache))))
+        # print(len(list(ecg_cache)))
