@@ -1,0 +1,24 @@
+thingsboard:
+  host: <put host>
+  port: 8081
+  remoteShell: false
+  remoteConfiguration: false
+  statistics:
+    enable: false
+    statsSendPeriodInSeconds: 3600
+    configuration: statistics/statistics_linux.json
+  deviceFiltering:
+    enable: false
+    filterFile: list.json
+  maxPayloadSizeBytes: 1024
+  minPackSendDelayMS: 200
+  minPackSizeToSend: 500
+  checkConnectorsConfigurationInSeconds: 60
+  handleDeviceRenaming: true
+  checkingDeviceActivity:
+    checkDeviceInactivity: false
+    inactivityTimeoutSeconds: 120
+    inactivityCheckPeriodSeconds: 10
+  security:
+    accessToken: <put access token>
+  qos: 1
