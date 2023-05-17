@@ -313,8 +313,12 @@ class MqttConnector(Connector, Thread):
                     # Load converter for this mapping entry ------------------------------------------------------------
                     # mappings are guaranteed to have topicFilter and converter fields. See __init__
 
+                    # default_converters = {
+                    #     "json": "JsonMqttUplinkConverter",
+                    #     "bytes": "BytesMqttUplinkConverter"
+                    # }
+
                     default_converters = {
-                        "json": "JsonMqttUplinkConverter",
                         "bytes": "BytesMqttUplinkConverter"
                     }
 
@@ -331,7 +335,7 @@ class MqttConnector(Connector, Thread):
                     if module:
                         self.__log.debug('Converter %s for topic %s - found!', converter_class_name,
                                          mapping["topicFilter"])
-                        converter = module(mapping, self.__ai_queue, self.__trigger_queue)
+                        converter = module(mapping)
                     else:
                         self.__log.error("Cannot find converter for %s topic", mapping["topicFilter"])
                         continue

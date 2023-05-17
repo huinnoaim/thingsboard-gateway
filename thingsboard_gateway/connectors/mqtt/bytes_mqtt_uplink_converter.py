@@ -280,10 +280,10 @@ def calculate_hr(device_name):
 
 
 class BytesMqttUplinkConverter(MqttUplinkConverter):
-    def __init__(self, config, ai_queue, trigger_queue):
+    def __init__(self, config):
         self.__config = config.get('converter')
-        self.__alarm_manager = AlarmManager()
-        self.__http_manager = HttpManager(ai_queue, trigger_queue)
+        # self.__alarm_manager = AlarmManager()
+        # self.__http_manager = HttpManager(ai_queue, trigger_queue)
         global ecg_cache
         global ttl_cache
         global index_cache
@@ -323,19 +323,19 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
         device_name = str(dict_result['deviceName'])
         field_ts = int(dict_result['telemetry'][0]['ts'])
 
-        if 'ecgData' in dict_result['telemetry'][0]['values']:
-            field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
-            field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
+        # if 'ecgData' in dict_result['telemetry'][0]['values']:
+        #     field_ecg = json.dumps(dict_result['telemetry'][0]['values']['ecgData'])
+        #     field_ecg_index = int(dict_result['telemetry'][0]['values']['ecgDataIndex'])
 
-            self.queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
-        #     hr = calculate_hr(device_name)
-        #     dict_result['telemetry'][0]['values']['hr'] = hr
+        #     self.queuing_ecg(device_name, field_ts, field_ecg, field_ecg_index)
+        # #     hr = calculate_hr(device_name)
+        # #     dict_result['telemetry'][0]['values']['hr'] = hr
 
-        # check alarm
-        alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
-        if alarm is not None:
-            log.debug(alarm)
-            dict_result['alarm'] = alarm
+        # # check alarm
+        # alarm = self.__alarm_manager.find_alarms_if_met_condition(dict_result)
+        # if alarm is not None:
+        #     log.debug(alarm)
+        #     dict_result['alarm'] = alarm
 
         return dict_result
 
