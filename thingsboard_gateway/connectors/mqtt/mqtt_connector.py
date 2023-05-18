@@ -181,8 +181,6 @@ class MqttConnector(Connector, Thread):
         self.daemon = True
 
         self.__msg_queue = Queue()
-        self.__ai_queue = mp.Queue()
-        self.__trigger_queue = mp.Queue()
         self.__workers_thread_pool = []
         self.__max_msg_number_for_worker = config['broker'].get('maxMessageNumberPerWorker', 10)
         self.__max_number_of_workers = config['broker'].get('maxNumberOfWorkers', 100)
@@ -434,10 +432,7 @@ class MqttConnector(Connector, Thread):
         if len(self.__workers_thread_pool) == 0:
             worker = MqttConnector.ConverterWorker("Main",
                                                    self.__msg_queue,
-                                                   self._save_converted_msg,
-                                                   self._client,
-                                                   self.__ai_queue,
-                                                   self.__trigger_queue)
+                                                   self._save_converted_msg)
             self.__workers_thread_pool.append(worker)
             worker.start()
 
@@ -447,10 +442,7 @@ class MqttConnector(Connector, Thread):
             thread = MqttConnector.ConverterWorker(
                 name="Converter worker",
                 incoming_queue=self.__msg_queue,
-                send_result=self._save_converted_msg,
-                mqtt_client=self._client,
-                ai_queue=self.__ai_queue,
-                trigger_queue=self.__trigger_queue)
+                send_result=self._save_converted_msg)
             self.__workers_thread_pool.append(thread)
             thread.start()
         elif number_of_needed_threads < threads_count and threads_count > 1:
@@ -826,18 +818,14 @@ class MqttConnector(Connector, Thread):
         self._client.unsubscribe(topic)
 
     class ConverterWorker(Thread):
-        def __init__(self, name, incoming_queue, send_result, mqtt_client: Client, ai_queue, trigger_queue):
+        def __init__(self, name, incoming_queue, send_result):
             super().__init__()
             self.stopped = False
             self.setName(name)
             self.setDaemon(True)
             self.__msg_queue = incoming_queue
-            self.__ai_queue = ai_queue
-            self.__trigger_queue = trigger_queue
             self.in_progress = False
             self.__send_result = send_result
-            self._client = mqtt_client
-            self.__log = log
 
         def run(self):
             while not self.stopped:
@@ -850,13 +838,13 @@ class MqttConnector(Connector, Thread):
                                            converted_data.get(TELEMETRY_PARAMETER)):
                         self.__send_result(config, converted_data)
 
-                    if converted_data and converted_data.get('alarm'):
-                        alarm = converted_data.get('alarm')
-                        if alarm.get('hospital_id') and alarm.get('ward_id') and alarm.get('exam_id'):
-                            log.info('trigger ALARM')
-                            # serial_number, hospital_id, ward_id, exam_id
-                            topic_name = f'alarms/{alarm.hospital_id}/{alarm.ward_id}/{alarm.exam_id}'
-                            self._client.publish(topic_name, converted_data)
+                #     if converted_data and converted_data.get('alarm'):
+                #         alarm = converted_data.get('alarm')
+                #         if alarm.get('hospital_id') and alarm.get('ward_id') and alarm.get('exam_id'):
+                #             log.info('trigger ALARM')
+                #             # serial_number, hospital_id, ward_id, exam_id
+                #             topic_name = f'alarms/{alarm.hospital_id}/{alarm.ward_id}/{alarm.exam_id}'
+                #             self._client.publish(topic_name, converted_data)
 
                     self.in_progress = False
                 else:
