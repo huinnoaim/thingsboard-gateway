@@ -12,21 +12,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__file__)
 
 
-def get_client(fpath: Union[Path, None] = None) -> Redis:
-    dirname = path.dirname(path.abspath(__file__))
-    cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
-    cfg_file = cfg_file if fpath is None else fpath
-
-    with open(cfg_file) as general_config:
-        cfg = yaml.safe_load(general_config)
-
-    redis_cfg = cfg['redis']
-    host = redis_cfg['host']
-    port = redis_cfg['port']
-    password = redis_cfg['password']
-    return Redis(host=host, port=port, password=password)
-
-
 class SingletonType(type):
     '''It restricts a class as Singleton.
 
@@ -46,9 +31,24 @@ class Redis(RedisBase):
     __metaclass__ = SingletonType
     '''Redis Singletone Base Class.
     '''
-    pass
+
+    @staticmethod
+    def from_cfgfile(fpath: Union[Path, None] = None) -> Redis:
+        dirname = path.dirname(path.abspath(__file__))
+        cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
+        cfg_file = cfg_file if fpath is None else fpath
+
+        with open(cfg_file) as general_config:
+            cfg = yaml.safe_load(general_config)
+
+        redis_cfg = cfg['redis']
+        host = redis_cfg['host']
+        port = redis_cfg['port']
+        password = redis_cfg['password']
+        return Redis(host=host, port=port, password=password)
+
 
 
 if __name__ == "__main__":
-    redis = get_client()
+    redis = Redis.from_cfgfile()
     redis.rpush('test', 1)

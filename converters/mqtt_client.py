@@ -14,21 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__file__)
 
 
-def get_client(fpath: Union[Path, None] = None) -> TBMqttClient:
-    dirname = path.dirname(path.abspath(__file__))
-    cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
-    cfg_file = cfg_file if fpath is None else fpath
-
-    with open(cfg_file) as general_config:
-        cfg = yaml.safe_load(general_config)
-
-    tb_cfg = cfg['thingsboard']
-    host = tb_cfg['host']
-    port = tb_cfg['port']
-    security_token = tb_cfg['security']['accessToken']
-    return TBMqttClient(host, port, security_token)
-
-
 @dc.dataclass
 class DeviceData:
     device: Union[str, None]
@@ -103,3 +88,18 @@ class TBMqttClient(threading.Thread, metaclass=SingletonType):
                 self.__stopped = True
             except Exception as e:
                 logger.exception(e)
+
+    @staticmethod
+    def from_cfgfile(fpath: Union[Path, None] = None) -> TBMqttClient:
+        dirname = path.dirname(path.abspath(__file__))
+        cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
+        cfg_file = cfg_file if fpath is None else fpath
+
+        with open(cfg_file) as general_config:
+            cfg = yaml.safe_load(general_config)
+
+        tb_cfg = cfg['thingsboard']
+        host = tb_cfg['host']
+        port = tb_cfg['port']
+        security_token = tb_cfg['security']['accessToken']
+        return TBMqttClient(host, port, security_token)
