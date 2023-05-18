@@ -23,6 +23,6 @@ thingsboard:
     accessToken: <put access token>
   qos: 1
 redis:
-  host: <put host>
+  host: localhost
   port: 6379
-  password: <put password>
+  password: Wm2RDngcC0
