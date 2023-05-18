@@ -1,4 +1,5 @@
 from __future__ import annotations
+import sys
 import multiprocessing as mp
 import logging
 import time
@@ -8,6 +9,7 @@ import json
 from pathlib import Path
 from os import path
 from typing import Any, Union
+from traceback import print_exc
 
 from redis import Redis as RedisBase
 
@@ -89,18 +91,26 @@ class RedisSender(mp.Process):
         self.redis = None
 
     def run(self):
-        self.redis = Redis.from_cfgfile(self.cfgpath)  # redis is singletone
+        try:
+            self.redis = Redis.from_cfgfile(self.cfgpath)  # redis is singletone
+        except Exception as e:
+            print_exc(e)
+            raise RuntimeError("Run Redis is failed")
+
         while True:
-            if not self.queue.empty():
-                converted_data = self.queue.get(True, 100)
-                ecg_data = EcgData.from_telemetry(converted_data)
-                logger.info(f'{ecg_data.device} ECG data is sent to Redis')
-                self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
-                self.redis.expire(ecg_data.redis_key, REDIS_TTL)
+            try:
+                if not self.queue.empty():
+                    converted_data = self.queue.get(True, 100)
+                    ecg_data = EcgData.from_telemetry(converted_data)
+                    logger.info(f'{ecg_data.device} ECG data is sent to Redis')
+                    self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
+                    self.redis.expire(ecg_data.redis_key, REDIS_TTL)
 
-                # result: bytes = self.redis.get(ecg_data.redis_key)
-                # result = json.loads(result.decode('utf-8'))
-                # print(result)
+                    # result: bytes = self.redis.get(ecg_data.redis_key)
+                    # result = json.loads(result.decode('utf-8'))
+                    # print(result)
 
-            time.sleep(.2)
-
+                time.sleep(.2)
+            except KeyboardInterrupt:
+                self.redis.close()
+                self.close()
