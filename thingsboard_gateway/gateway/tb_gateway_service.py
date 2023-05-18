@@ -43,6 +43,7 @@ from thingsboard_gateway.tb_utility.tb_gateway_remote_configurator import Remote
 from thingsboard_gateway.tb_utility.tb_loader import TBModuleLoader
 from thingsboard_gateway.tb_utility.tb_logger import TBLoggerHandler
 from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+from thingsboard_gateway.gateway.redis import RedisSender
 
 GRPC_LOADED = False
 try:
@@ -182,7 +183,10 @@ class TBGatewayService:
         self.remote_handler = TBLoggerHandler(self)
         self.main_handler.setTarget(self.remote_handler)
         self._default_connectors = DEFAULT_CONNECTORS
-        self.__converted_data_queue = mp.Queue()
+        self.__converted_data_queue = SimpleQueue()
+        self.__redis_queue = mp.Queue()
+        self._redis = RedisSender(self.__redis_queue)
+        self._redis.start()
         self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
                                                    daemon=True,
                                                    target=self.__send_to_storage)
@@ -694,6 +698,7 @@ class TBGatewayService:
             filtered_data = self.__duplicate_detector.filter_data(connector_name, data)
             if filtered_data:
                 self.__converted_data_queue.put((connector_name, filtered_data), True, 100)
+                self.__redis_queue.put(filtered_data, True, 100)
                 return Status.SUCCESS
             else:
                 return Status.NO_NEW_DATA
