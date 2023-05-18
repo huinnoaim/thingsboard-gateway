@@ -1,4 +1,5 @@
 from __future__ import annotations
+import threading
 import logging
 from pathlib import Path
 from os import path
@@ -48,7 +49,17 @@ class Redis(RedisBase):
         return Redis(host=host, port=port, password=password)
 
 
+class RedisUtils:
 
-if __name__ == "__main__":
-    redis = Redis.from_cfgfile()
-    redis.rpush('test', 1)
+    class ECG:
+        @staticmethod
+        def get_devices(redis: Redis) -> list[str]:
+            ptrn = ptrn = f'ecg:*'  # ecg:{device}:{ecgIndex}
+            keys = redis.keys(ptrn)
+            devices = map(lambda x: x.decode('utf-8;').split(':')[1], keys)
+            return sorted(set(devices))
+
+        def get_lastest_index(redis: Redis, device: str, latest: Union[int, None] = None) -> list[str]:
+            ptrn = ptrn = f'ecg:{device}:*'  # ecg:{device}:{ecgIndex}
+            keys = map(lambda x: x.decode('utf-8'), redis.keys(ptrn))
+            return sorted(keys, reverse=True, key=lambda x: int(x.split(':')[2]))[:latest]
