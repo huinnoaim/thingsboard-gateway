@@ -35,6 +35,15 @@ class Redis(RedisBase):
     '''Redis Singletone Base Class.
     '''
 
+    def is_connected(self):
+        try:
+            self.ping()
+            print("Successfully connected to redis")
+        except (self.exceptions.ConnectionError, ConnectionRefusedError):
+            print("Redis connection error!")
+            return False
+        return True
+
     @staticmethod
     def from_cfgfile(fpath: Union[Path, None] = None) -> Redis:
         dirname = path.dirname(path.abspath(__file__))
