@@ -14,7 +14,7 @@ from traceback import print_exc
 from redis import Redis as RedisBase
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__file__)
 
 
@@ -39,12 +39,16 @@ class EcgData:
         return json.dumps({'ts': self.ts, 'ecg': self.values}).encode('utf-8')
 
     @staticmethod
-    def from_telemetry(telemetry_data: dict) -> EcgData:
-        device_name = str(telemetry_data['deviceName'])
-        field_ts = int(telemetry_data['telemetry'][0]['ts'])
-        field_ecg = json.dumps(telemetry_data['telemetry'][0]['values']['ecgData'])
-        field_ecg_index = int(telemetry_data['telemetry'][0]['values']['ecgDataIndex'])
-        return EcgData(device=device_name, ts=field_ts, idx=field_ecg_index, values=json.loads(field_ecg))
+    def from_telemetry(telemetry_data: dict) -> Union[EcgData, None]:
+        try:
+            device_name = str(telemetry_data['deviceName'])
+            field_ts = int(telemetry_data['telemetry'][0]['ts'])
+            field_ecg = json.dumps(telemetry_data['telemetry'][0]['values']['ecgData'])
+            field_ecg_index = int(telemetry_data['telemetry'][0]['values']['ecgDataIndex'])
+            return EcgData(device=device_name, ts=field_ts, idx=field_ecg_index, values=json.loads(field_ecg))
+        except:
+            logger.debug(f'{device_name} sent INVALID ECG format: {str(telemetry_data)}')
+            return None
 
 
 class SingletonType(type):
@@ -102,10 +106,10 @@ class RedisSender(mp.Process):
                 if not self.queue.empty():
                     converted_data = self.queue.get(True, 100)
                     ecg_data = EcgData.from_telemetry(converted_data)
-                    logger.info(f'{ecg_data.device} ECG data is sent to Redis')
-                    self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
-                    self.redis.expire(ecg_data.redis_key, REDIS_TTL)
-
+                    if ecg_data:
+                        self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
+                        self.redis.expire(ecg_data.redis_key, REDIS_TTL)
+                        logger.info(f'{ecg_data.device} ECG data is sent to Redis')
                     # result: bytes = self.redis.get(ecg_data.redis_key)
                     # result = json.loads(result.decode('utf-8'))
                     # print(result)
