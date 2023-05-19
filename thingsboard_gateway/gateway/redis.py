@@ -13,13 +13,11 @@ from traceback import print_exc
 
 from redis import Redis as RedisBase
 
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__file__)
+logger = logging.getLogger('redis')
 
 
 DEFAULT_CONFIG_FILEPATH = "/config/redis.yaml"
-REDIS_TTL = 300  # 300 sec
+REDIS_TTL = 90  # 90 sec
 
 @dc.dataclass
 class EcgData:
@@ -93,6 +91,7 @@ class RedisSender(mp.Process):
         self.name = 'Redis Sender'
         self.cfgpath = cfg_fpath
         self.redis = None
+        self.bulksize = 40
 
     def run(self):
         try:
@@ -104,15 +103,21 @@ class RedisSender(mp.Process):
         while True:
             try:
                 if not self.queue.empty():
-                    converted_data = self.queue.get(True, 100)
-                    ecg_data = EcgData.from_telemetry(converted_data)
-                    if ecg_data:
-                        self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
-                        self.redis.expire(ecg_data.redis_key, REDIS_TTL)
-                        logger.info(f'{ecg_data.device} ECG data is sent to Redis')
-                    # result: bytes = self.redis.get(ecg_data.redis_key)
-                    # result = json.loads(result.decode('utf-8'))
-                    # print(result)
+                    ecgbulk: list[EcgData] = []
+                    for _ in range(min(self.bulksize, self.queue.qsize())):
+                        converted_data = self.queue.get(True, 100)
+                        ecg_data = EcgData.from_telemetry(converted_data)
+                        if ecg_data:
+                            ecgbulk.append(ecg_data)
+
+                    pipe = self.redis.pipeline()
+                    for ecg in ecgbulk:
+                        pipe.set(ecg.redis_key, ecg.redis_values)
+                        # self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
+                        pipe.expire(ecg.redis_key, REDIS_TTL)
+
+                    pipe.execute()
+                    logger.info(f'# {len(ecgbulk)} ECG data is sent to Redis, # RedisQueueSize: {self.queue.qsize()}')
 
                 time.sleep(.2)
             except KeyboardInterrupt:
