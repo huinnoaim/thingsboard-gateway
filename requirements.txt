@@ -18,3 +18,4 @@ paho-mqtt>=1.6.1
 PyYAML==6.0
 jsonpath-rw==1.4.0
 bin-parser==1.0.1
+redis
