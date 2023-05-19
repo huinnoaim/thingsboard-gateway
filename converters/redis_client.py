@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__file__)
 
 
+DEFAULT_CFG_PATH = '/config/client.yaml'
+
 class SingletonType(type):
     '''It restricts a class as Singleton.
 
@@ -36,16 +38,16 @@ class Redis(RedisBase):
     @staticmethod
     def from_cfgfile(fpath: Union[Path, None] = None) -> Redis:
         dirname = path.dirname(path.abspath(__file__))
-        cfg_file = dirname + '/config/client.yaml'.replace('/', path.sep)
+        cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', path.sep)
         cfg_file = cfg_file if fpath is None else fpath
 
         with open(cfg_file) as general_config:
-            cfg = yaml.safe_load(general_config)
+            full_cfg = yaml.safe_load(general_config)
 
-        redis_cfg = cfg['redis']
-        host = redis_cfg['host']
-        port = redis_cfg['port']
-        password = redis_cfg['password']
+        cfg = full_cfg['redis']
+        host = cfg['host']
+        port = cfg['port']
+        password = cfg['password']
         return Redis(host=host, port=port, password=password)
 
 
@@ -56,7 +58,7 @@ class RedisUtils:
         def get_devices(redis: Redis) -> list[str]:
             ptrn = ptrn = f'ecg:*'  # ecg:{device}:{ecgIndex}
             keys = redis.keys(ptrn)
-            devices = map(lambda x: x.decode('utf-8;').split(':')[1], keys)
+            devices = map(lambda x: x.decode('utf-8').split(':')[1], keys)
             return sorted(set(devices))
 
         def get_lastest_index(redis: Redis, device: str, latest: Union[int, None] = None) -> list[str]:
