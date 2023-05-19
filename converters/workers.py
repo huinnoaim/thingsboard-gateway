@@ -1,11 +1,19 @@
+import logging
 import time
 import json
 import multiprocessing as mp
-from typing import Union, NamedTuple
+from typing import Union
 from pathlib import Path
+from multiprocessing import Queue
+from traceback import print_exc
 
 from redis_client import Redis, RedisUtils
+from mqtt_client import MQTTClient
+from datamodel import ECGBulk, ECG, HeartRate
+import hr_detector
 
+
+logger = logging.getLogger(__file__)
 
 def fibonacci(n):
     if n <= 1:
@@ -14,21 +22,23 @@ def fibonacci(n):
         return fibonacci(n-1) + fibonacci(n-2)
 
 
-class QueuedECG(NamedTuple):
-    device: str
-    data: list[dict]
-
 class ECGWatcher(mp.Process):
-    def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
+    def __init__(self, queue: Queue, cfg_fpath: Union[Path, None] = None):
         super().__init__()
         self.redis = None
-        self.queue = queue
+        self.queue: Queue[ECGBulk] = queue
         self.cfgpath = cfg_fpath
         self.last_ecg_idx = {}
-        self.num_of_required_ecg = 10
+        self.num_of_required_ecg = 24  # ecg interval is 2.5 sec, 2.5* 24 = 60 sec
 
     def run(self):
         self.redis = Redis.from_cfgfile(self.cfgpath)
+        while not self.redis.is_connected:
+            try:
+                self.redis = Redis.from_cfgfile(self.cfgpath)
+            except Exception as e:
+                print_exc(e)
+
         while True:
             devices = RedisUtils.ECG.get_devices(self.redis)
             for device in devices:
@@ -43,48 +53,70 @@ class ECGWatcher(mp.Process):
                 self.last_ecg_idx[device] = latests[0]  # update the last index
 
                 if len(latests) == self.num_of_required_ecg:
-                    data = [json.loads(self.redis.get(key)) for key in latests]
-                    self.queue.put(QueuedECG(device, data))
-                    print('ECG', device)
+                    sortby_index = lambda x: int(x.split(':')[2])
+                    keys = sorted(latests, key=sortby_index)  # latest ECG is the last
+
+                    ecgbulk: list[ECG] = []
+                    for raw in map(json.loads, self.redis.mget(keys)):
+                        ecg = ECG(device, raw['ts'], raw['ecg'])
+                        ecgbulk.append(ecg)
+
+                    self.queue.put(ECGBulk(ecgbulk))
+                    logger.info(f'Device {device} ECG data is transfered')
+                    # logger.info(f'Device {device} ECG data is transfered, ECG Queue Size: {self.queue.qsize()}')
                     continue
 
             time.sleep(.2)
 
 
-class HRCalculator(mp.Process):
-    def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
+class HeartRateCalculator(mp.Process):
+    '''It calculates Heart Rates by using a multi-processing and put it to the outgoing queue.
+    '''
+    def __init__(self, incoming_queue: Queue, outgoing_queue: Queue):
         super().__init__()
-        self.queue: mp.Queue[QueuedECG] = queue
-        self.cfgpath = cfg_fpath
+        self.ecg_queue: Queue[ECGBulk] = incoming_queue
+        self.hr_queue: Queue[HeartRate] = outgoing_queue
+        self.itersize = 40
 
     def run(self):
         while True:
-            if not self.queue.empty():
-                device, data = self.queue.get(True, 100)
-                print('HR', device)
-                fibonacci(30)
-
-            time.sleep(.2)
+            if not self.ecg_queue.empty():
+                # for _ in range(min(self.itersize, self.ecg_queue.qsize())):
+                ecgbulk: ECGBulk = self.ecg_queue.get(True, 100)
+                heart_rate: HeartRate = HeartRateCalculator.calculate_hr(ecgbulk)
+                self.hr_queue.put(heart_rate)
+                logger.info(f"Device {ecgbulk.device} HR: {heart_rate}")
+            # time.sleep(.2)
 
     @staticmethod
-    def calculate_hr(device_name):
-        # # calculate HR
-        # # now_ms = int( time.time_ns() / 1000 )
-        # now_sec = int(time.time())
-        # hr_input = filter(lambda d: (d[2] == device_name and (int(d[0]) >= now_sec - HR_CALC_RANGE_SEC)), list(ecg_cache.items()))
-        # # print(len(list(hr_input)))
-        # # print(list(hr_input))
-        # # hr_input tuple = (timestamp, ecg, device_name)
-        # hr_input = sorted(hr_input, key=lambda el: el[0], reverse=False)
-        # # print(list(map(lambda d: d[0], hr_input)))
-        # hr_input = list(map(lambda d: json.loads(d[1]), hr_input))
-        # hr_input = np.array(hr_input, float).flatten().tolist()
-        # # 3200개 / 5 번, 11초  = 640개/1번 = 320개/1초
-        # # 2560개 / 4 번, 10초 = 640개/1번 = 약256개/1초
-        # # print(len(hr_input))
-        # # print(list(hr_input))
-        # # 250 samples/s
-        # hr = hr_detector.detect(hr_input, 250)
-        # log.debug(device_name + ', HR: ' + str(hr))
-        # return hr
-        return None
+    def calculate_hr(ecgbulk: ECGBulk) -> HeartRate:
+        hr = hr_detector.detect(ecgbulk.values, 250)
+        return HeartRate(ecgbulk.device, int(time.time()), hr)
+
+
+class HeartRateSender(mp.Process):
+    def __init__(self, queue: Queue, cfg_fpath: Union[Path, None] = None):
+        super().__init__()
+        self.queue: Queue[HeartRate] = queue
+        self.cfgpath = cfg_fpath
+
+    def run(self):
+        self.mqtt_client = MQTTClient.from_cfgfile(self.cfgpath)
+        while not self.mqtt_client.is_connected:
+            try:
+                self.mqtt_client.connect()
+            except:
+                time.sleep(2)
+
+        while True:
+            try:
+                if not self.queue.empty():
+                    device, data = self.queue.get(True, 100)
+                    print('HR', device)
+                    self.mqtt_client.pub(
+                        topic="v1/gateway/telemetry",
+                        message= '{"0023A0000011": [{"ts": 1483228800000,"values": {"temperature": 42,"humidity": 80}},{"ts": 1483228801000,"values": {"temperature": 43,"humidity": 82}}],"0023P1000200": [{"ts": 1483228800000,"values": {"temperature": 42,"humidity": 80}}]}'
+            )
+            except KeyboardInterrupt:
+                self.mqtt_client.disconnect()
+            time.sleep(.2)
