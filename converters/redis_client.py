@@ -58,7 +58,8 @@ class RedisUtils:
         def get_devices(redis: Redis) -> list[str]:
             ptrn = ptrn = f'ecg:*'  # ecg:{device}:{ecgIndex}
             keys = redis.keys(ptrn)
-            devices = map(lambda x: x.decode('utf-8').split(':')[1], keys)
+            extract_device = lambda x: x.decode('utf-8').split(':')[1]
+            devices = map(extract_device, keys)
             return sorted(set(devices))
 
         def get_lastest_index(redis: Redis, device: str, latest: Union[int, None] = None) -> list[str]:
