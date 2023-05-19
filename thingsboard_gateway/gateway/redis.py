@@ -113,7 +113,6 @@ class RedisSender(mp.Process):
                     pipe = self.redis.pipeline()
                     for ecg in ecgbulk:
                         pipe.set(ecg.redis_key, ecg.redis_values)
-                        # self.redis.set(ecg_data.redis_key, ecg_data.redis_values)
                         pipe.expire(ecg.redis_key, REDIS_TTL)
 
                     pipe.execute()
