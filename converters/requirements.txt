@@ -1,0 +1,4 @@
+PyYAML
+redis
+paho-mqtt
+scipy

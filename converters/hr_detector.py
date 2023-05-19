@@ -1,8 +1,9 @@
 import math
-from scipy import signal as sci_sig
 import logging
 
-log = logging.getLogger(__file__)
+from scipy import signal as sci_sig
+
+logger = logging.getLogger(__file__)
 
 _WINDOW_SEC = 0.160
 _MIN_RR = 0.2  # compare with 0.33
@@ -15,7 +16,7 @@ _HR_CALC_WINDOW_SEC = 60
 
 def detect(signal: list[float], rate: int):
     if len(signal) < 9:
-        log.error('signal length should bigger than 9')
+        logger.error('signal length should bigger than 9')
         return
 
     buffer, samples_delay = _filter_signal(signal, rate)
@@ -33,7 +34,7 @@ def detect(signal: list[float], rate: int):
     max_rr_samples = round(_MAX_RR * rate)
     indices = _thresholding(integrated, min_rr_samples, max_rr_samples)
     indices = [x - samples_delay for x in indices]
-    log.info('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
+    logger.info('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
     peaks_count = len(_correct_peaks(signal, rate, indices))
     # 샘플의 총 시간 -> 이걸 1분으로 만든다.
     duration_s = float(len(signal) / rate)
@@ -77,7 +78,7 @@ def _high_pass_filter(signal):
 
 def _filter_signal(signal, rate):
     if len(signal) < 9:
-        log.error('signal length should bigger than 9')
+        logger.error('signal length should bigger than 9')
         return
 
     if rate == _ARTICLE_SAMPLING_RATE:
@@ -191,5 +192,5 @@ def _correct_peaks(signal, rate, peaks):
         if new_index != old_index:
             peaks[i] = new_index
         i += 1
-    # log.info('peaks:' + str(len(peaks)))
+    # logger.info('peaks:' + str(len(peaks)))
     return peaks

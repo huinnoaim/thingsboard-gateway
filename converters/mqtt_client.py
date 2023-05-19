@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import Union
 from pathlib import Path
-import yaml
 import os
 
+import yaml
 import paho.mqtt.client as mqtt
 
 
@@ -23,12 +23,12 @@ class MQTTClient:
     def on_publish(self, client, userdata, mid):
         print("Message published")
 
-    
+
 
     def connect(self):
         self.client.on_connect = self.on_connect
         self.client.on_publish = self.on_publish
-        
+
         if self.token:
             self.client.username_pw_set(self.token, "")
         self.client.connect(self.url, self.port)

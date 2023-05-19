@@ -1,11 +1,10 @@
 from __future__ import annotations
-import threading
 import logging
 from pathlib import Path
 from os import path
-import yaml
 from typing import Union
 
+import yaml
 from redis import Redis as RedisBase
 
 

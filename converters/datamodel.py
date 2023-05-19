@@ -6,9 +6,6 @@ import dataclasses as dc
 import json
 import itertools
 
-import pandas as pd
-
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__file__)
 
@@ -31,9 +28,6 @@ class ECGBulk:
     def values(self) -> list[float]:
         values = [ecg.values for ecg in self.ecgs]
         return list(itertools.chain(*values))
-
-    def to_df(self) -> pd.DataFrame:
-        raise NotImplementedError
 
 
 class HeartRate(NamedTuple):

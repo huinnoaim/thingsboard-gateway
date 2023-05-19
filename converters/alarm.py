@@ -1,9 +1,13 @@
-from mqtt_client import MQTTClient
-from alarm_manager import AlarmManager
-import paho.mqtt.client as mqtt
 import json
 
+import paho.mqtt.client as mqtt
+
+from mqtt_client import MQTTClient
+from alarm_manager import AlarmManager
+
+
 __alarm_manager = AlarmManager()
+
 
 def handle_telemetry_message(client, userdata, msg):
     print('dd')
