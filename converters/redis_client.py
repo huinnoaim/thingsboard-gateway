@@ -34,6 +34,7 @@ class Redis(RedisBase):
     '''Redis Singletone Base Class.
     '''
 
+    @property
     def is_connected(self):
         try:
             self.ping()

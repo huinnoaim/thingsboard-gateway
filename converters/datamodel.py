@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import NamedTuple
+from typing import NamedTuple, ClassVar
 from functools import cached_property
 import logging
 import dataclasses as dc
@@ -37,11 +37,15 @@ class HeartRate(NamedTuple):
 
 @dc.dataclass
 class HeartRateTelemetry:
-    TOPIC = "v1/gateway/telemetry"
+    TOPIC: ClassVar[str] = "v1/gateway/telemetry"
     heart_rates: list[HeartRate]
 
     def export_message(self) -> str:
-        pass
+        msgs = {}
+        for hr in self.heart_rates:
+            msg = {f"{hr.device}": [{'ts': hr.ts, "values": {"hr": hr.value}}]}
+            msgs.update(msg)
+        return json.dumps(msgs)
 
 
 @dc.dataclass

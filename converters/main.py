@@ -1,15 +1,16 @@
 from __future__ import annotations
+import sys
 import argparse
 import os
 from typing import NamedTuple
 import logging
 import multiprocessing as mp
 from pathlib import Path
-# from queue import Queue
+
 import yaml
 from dotenv import load_dotenv
 
-from workers import ECGWatcher, HeartRateCalculator
+from workers import ECGWatcher, HeartRateCalculator, HeartRateSender
 from datamodel import HeartRate, ECG, ECGBulk
 
 logger = logging.getLogger(__file__)
@@ -56,8 +57,12 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
-    ecg_queue: mp.Queue[list[ECG]] = mp.Queue()
+def main(args: argparse.Namespace):
+    envs = Envs.getenv(args.envfpath)
+    if envs:
+        update_cfgfile(envs, args.cfgfpath)
+
+    ecg_queue: mp.Queue[ECGBulk] = mp.Queue()
     hr_queue: mp.Queue[HeartRate] = mp.Queue()
 
     watcher = ECGWatcher(ecg_queue)
@@ -66,8 +71,16 @@ def main():
     calculator = HeartRateCalculator(incoming_queue=ecg_queue, outgoing_queue=hr_queue)
     calculator.start()
 
+    sender = HeartRateSender(hr_queue)
+    sender.start()
+
     while True:
-        pass
+        try:
+            pass
+        except KeyboardInterrupt:
+            ecg_queue.close()
+            hr_queue.close()
+            sys.exit(0)
         # manager.start()
         # server = manager.get_server()
         # server.serve_forever()
@@ -75,10 +88,6 @@ def main():
 
 if __name__ == "__main__":
     args = get_args()
-    envs = Envs.getenv(args.envfpath)
-    if envs:
-        update_cfgfile(envs, args.cfgfpath)
-
-    main()
+    main(args)
 
 

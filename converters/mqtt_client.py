@@ -2,10 +2,13 @@ from __future__ import annotations
 from typing import Union
 from pathlib import Path
 import os
+import logging
 
 import yaml
 import paho.mqtt.client as mqtt
 
+
+logger = logging.getLogger(__file__)
 
 DEFAULT_CFG_PATH = '/config/client.yaml'
 
@@ -18,12 +21,10 @@ class MQTTClient:
         self.client = mqtt.Client()
 
     def on_connect(self, client, userdata, flags, rc):
-        print(f"Connected with result code {rc}")
+        logger.info(f"Connected with result code {rc}")
 
     def on_publish(self, client, userdata, mid):
-        print("Message published")
-
-
+        logger.info("Message published")
 
     def connect(self):
         self.client.on_connect = self.on_connect
@@ -61,4 +62,4 @@ class MQTTClient:
         host = cfg['host']
         port = cfg['port']
         access_token = cfg['security']['accessToken']
-        return MQTTClient(host=host, port=port, token=access_token)
+        return MQTTClient(url=host, port=port, token=access_token)
