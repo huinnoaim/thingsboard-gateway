@@ -1,8 +1,10 @@
 from __future__ import annotations
 from typing import Union
 from pathlib import Path
+import time
 import os
 import logging
+import threading
 
 import yaml
 import paho.mqtt.client as mqtt
@@ -11,28 +13,53 @@ import paho.mqtt.client as mqtt
 logger = logging.getLogger(__file__)
 
 DEFAULT_CFG_PATH = '/config/client.yaml'
+RESULT_CODES = {
+    1: "incorrect protocol version",
+    2: "invalid client identifier",
+    3: "server unavailable",
+    4: "bad username or password",
+    5: "not authorised",
+}
 
 
-class MQTTClient:
-    def __init__(self, url: str, port: int, token: str):
-        self.url = url
-        self.port = port
-        self.token = token
+class MQTTClient(threading.Thread):
+    def __init__(self, url: str, port: int, token: str, keep_alive: int=120, min_reconnect_delay: int=10, timeout: int=120):
+        super().__init__()
+        self.setName('MQTT Connector')
+        self.url: str = url
+        self.port: int = port
+        self.token: str = token
         self.client = mqtt.Client()
+        self._is_connected: bool = False
+        self.keep_alive: int = keep_alive
+        self.min_reconnect_delay: int = min_reconnect_delay
+        self.timeout: int = timeout
 
-    def on_connect(self, client, userdata, flags, rc):
-        logger.info(f"Connected with result code {rc}")
+        self.client._on_connect = self.on_connect
+        self.client._on_disconnect = self.disconnect
+        self.client._on_publish = self.on_publish
+
+    def on_connect(self, client, userdata, flags, rc, *args, **kwargs):
+        if rc == 0:
+            logger.info(f"Connected with result code {rc}")
+        else:
+            if rc in RESULT_CODES:
+                logger.error(f"connection FAIL with error {rc} {RESULT_CODES[rc]}")
+            else:
+                logger.error("connection FAIL with unknown error")
+
+    def disconnect(self):
+        self.client.loop_stop()
+        self.client.disconnect()
 
     def on_publish(self, client, userdata, mid):
         logger.info("Message published")
 
     def connect(self):
-        self.client.on_connect = self.on_connect
-        self.client.on_publish = self.on_publish
-
         if self.token:
             self.client.username_pw_set(self.token, "")
-        self.client.connect(self.url, self.port)
+        self.client.connect(host=self.url, port=self.port, keepalive=self.keep_alive)
+        self.client.reconnect_delay_set(self.min_reconnect_delay, self.timeout)
         self.client.loop_start()
 
     def pub(self, topic: str, message: str, qos=1):
@@ -41,9 +68,23 @@ class MQTTClient:
     def sub(self, topic, qos=1):
         self.client.subscribe(topic, qos)
 
-    def disconnect(self):
-        self.client.loop_stop()
-        self.client.disconnect()
+    def run(self):
+        logger.info('Start MQTT Connector')
+        try:
+            while not self.client.is_connected():
+                logger.info(f"connecting to ThingsBoard: {self.url}:{self.port}")
+                try:
+                    self.connect()
+                    logger.info('connected')
+                except ConnectionRefusedError as e:
+                    logger.error('ConnectionRefusedError', e)
+                    pass
+                except Exception as e:
+                    logger.exception(e)
+                time.sleep(1)
+        except Exception as e:
+            logger.exception(e)
+            time.sleep(10)
 
     @property
     def is_connected(self) -> bool:
@@ -62,4 +103,12 @@ class MQTTClient:
         host = cfg['host']
         port = cfg['port']
         access_token = cfg['security']['accessToken']
-        return MQTTClient(url=host, port=port, token=access_token)
+        keep_alive = cfg['connection']['keepAlive']
+        min_reconnect_delay = cfg['connection']['minReconnectDelay']
+        timeout = cfg['connection']['timeout']
+        return MQTTClient(url=host,
+                          port=port,
+                          token=access_token,
+                          keep_alive=keep_alive,
+                          min_reconnect_delay=min_reconnect_delay,
+                          timeout=timeout)

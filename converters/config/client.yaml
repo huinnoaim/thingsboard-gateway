@@ -22,7 +22,11 @@ thingsboard:
   security:
     accessToken: <put access token>
   qos: 1
+  connection:
+    keepAlive: 120
+    minReconnectDelay: 10
+    timeout: 120
 redis:
-  host: localhost
+  host: <put host>
   port: 6379
-  password: Wm2RDngcC0
+  password: <put password>
