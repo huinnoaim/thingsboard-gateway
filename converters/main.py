@@ -1,4 +1,5 @@
 from __future__ import annotations
+import builtins
 import sys
 import argparse
 import os
@@ -29,10 +30,14 @@ class Envs(NamedTuple):
         load_dotenv(fpath)
         kwargs = {}
         for field in  Envs.__dict__['_fields']:
-            casting = getattr(__builtins__, Envs.__annotations__[field].__forward_arg__)
+            casting = getattr(builtins, Envs.get_typing(field), None)
             value = os.getenv(field)
-            kwargs[field] = casting(value)
+            kwargs[field] = casting(value) if casting else value
         return Envs(**kwargs)
+
+    @classmethod
+    def get_typing(cls, field: str) -> str:
+        return cls.__annotations__[field].__forward_arg__
 
 
 def update_cfgfile(envs: Envs, cfg_fpath: Path):
