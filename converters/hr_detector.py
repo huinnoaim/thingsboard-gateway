@@ -34,7 +34,7 @@ def detect(signal: list[float], rate: int):
     max_rr_samples = round(_MAX_RR * rate)
     indices = _thresholding(integrated, min_rr_samples, max_rr_samples)
     indices = [x - samples_delay for x in indices]
-    logger.info('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
+    logger.debug('signal len: ' + str(len(signal)) + ', rate: ' + str(rate) + ', indices:' + str(len(indices)))
     peaks_count = len(_correct_peaks(signal, rate, indices))
     # 샘플의 총 시간 -> 이걸 1분으로 만든다.
     duration_s = float(len(signal) / rate)

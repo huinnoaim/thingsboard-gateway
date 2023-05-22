@@ -84,6 +84,9 @@ def main(args: argparse.Namespace):
         try:
             pass
         except KeyboardInterrupt:
+            watcher.close()
+            sender.close()
+
             ecg_queue.close()
             hr_queue.close()
             sys.exit(0)

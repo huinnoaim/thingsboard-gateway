@@ -45,7 +45,6 @@ class HeartRateTelemetry:
         for hr in self.heart_rates:
             msg = {f"{hr.device}": [{'ts': hr.ts, "values": {"hr": hr.value}}]}
             msgs.update(msg)
-
         return json.dumps(msgs) if msgs else None
 
 
