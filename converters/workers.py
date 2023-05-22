@@ -19,6 +19,7 @@ logger = logging.getLogger(__file__)
 class ECGWatcher(mp.Process):
     def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
         super().__init__()
+        self.name = 'ECG Watcher'
         self.redis = None
         self.queue: mp.Queue[ECGBulk] = queue
         self.cfgpath = cfg_fpath
@@ -90,6 +91,7 @@ class HeartRateCalculator(threading.Thread):
     '''
     def __init__(self, incoming_queue: mp.Queue, outgoing_queue: mp.Queue):
         super().__init__()
+        self.setName('Heart Rate Calculator')
         self.ecg_queue: mp.Queue[ECGBulk] = incoming_queue
         self.hr_queue: mp.Queue[HeartRate] = outgoing_queue
         self.itersize = 40
@@ -130,26 +132,15 @@ class HeartRateSender(mp.Process):
 
     def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
         super().__init__()
+        self.name = 'Heart Rate Sender'
         self.queue: mp.Queue[HeartRate] = queue
         self.msg_queue: list[str] = []
         self.cfg_path = cfg_fpath
         self.itersize = 40
-        self.mqtt_retry_sec = 5
 
     def run(self):
         self.mqtt_client = MQTTClient.from_cfgfile(self.cfg_path)
-        while not self.mqtt_client.is_connected:
-            try:
-                logger.info(f"Try to connect to the MQTT Host: {self.mqtt_client.url}")
-                self.mqtt_client.connect()
-                if self.mqtt_client.is_connected:
-                    logger.info(f'MQTT Client is connected: {self.mqtt_client.is_connected}')
-                    break
-                time.sleep(self.mqtt_retry_sec)
-                logger.info(f"Fail to connect to the MQTT Host. Retry after {self.mqtt_retry_sec} sec")
-            except Exception as e:
-                print_exc()
-                logger.info(f"MQTT Connection occurs an error: {e}")
+        self.mqtt_client.start()
 
         while True:
             try:
@@ -161,12 +152,17 @@ class HeartRateSender(mp.Process):
                         hrs.append(hr)
                         logger.debug(f"{hr.device}'s HR is arrived to HR Sender")
 
+                if not hrs:
+                    continue
+
                 # export a heart rate message and publish it to Thingsboard
                 hr_telemetry = HeartRateTelemetry(hrs)
                 msg = hr_telemetry.export_message()
-                self.mqtt_client.pub(topic=hr_telemetry.TOPIC, message=msg)
+                if msg is None:
+                    continue
 
                 # if disconnected to Thingbosard, queuing the HR message
+                self.mqtt_client.pub(topic=hr_telemetry.TOPIC, message=msg)
                 if not self.mqtt_client.is_connected:
                     self.msg_queue.append(msg)
                     if len(self.msg_queue) % 1000 == 0:
