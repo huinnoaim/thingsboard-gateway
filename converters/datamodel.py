@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import NamedTuple, ClassVar
+from typing import NamedTuple, ClassVar, Union
 from functools import cached_property
 import logging
 import dataclasses as dc
@@ -40,12 +40,13 @@ class HeartRateTelemetry:
     TOPIC: ClassVar[str] = "v1/gateway/telemetry"
     heart_rates: list[HeartRate]
 
-    def export_message(self) -> str:
+    def export_message(self) -> Union[str, None]:
         msgs = {}
         for hr in self.heart_rates:
             msg = {f"{hr.device}": [{'ts': hr.ts, "values": {"hr": hr.value}}]}
             msgs.update(msg)
-        return json.dumps(msgs)
+
+        return json.dumps(msgs) if msgs else None
 
 
 @dc.dataclass
