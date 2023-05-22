@@ -5,7 +5,7 @@ from os import path
 from typing import Union
 
 import yaml
-from redis import Redis as RedisBase
+from redis import ConnectionError, Redis as RedisBase
 
 
 logging.basicConfig(level=logging.INFO)
@@ -38,9 +38,9 @@ class Redis(RedisBase):
     def is_connected(self):
         try:
             self.ping()
-            print("Successfully connected to redis")
-        except (self.exceptions.ConnectionError, ConnectionRefusedError):
-            print("Redis connection error!")
+            logger.info("Successfully connected to redis")
+        except (ConnectionError, ConnectionRefusedError):
+            logger.info("Redis connection error!")
             return False
         return True
 
