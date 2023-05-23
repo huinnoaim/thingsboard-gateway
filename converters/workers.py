@@ -84,13 +84,22 @@ class ECGWatcher(mp.Process):
 
                     # load ECGs for the Redis
                     ecgs: list[ECG] = []
-                    for raw in map(json.loads, self.redis.mget(keys)):
-                        ecg = ECG(device, raw['ts'], raw['ecg'])
-                        ecgs.append(ecg)
-
+                    try:
+                        for raw in map(json.loads, self.redis.mget(keys)):
+                            ecg = ECG(device, raw['ts'], raw['ecg'])
+                            ecgs.append(ecg)
+                    except TypeError as e:
+                        print_exc()
+                        logger.warning('Fail to read ECG data from Redis')
+                    
+                    # No ECG data
+                    if not ecgs:
+                        continue
+                    
+                    # transfer ECG data
                     self.ecg_queue.put(ECGBulk(ecgs))
                     self.ai_queue.put(ECGBulk(ecgs))
-                    logger.info(f'Device {device} ECG data is transfered to HR Calculator, ECG Queue Size: {self.ecg_queue.qsize()}')
+                    logger.info(f'Device {device} ECG data is transfered to HR Calculator, ECG Queue Size: {self.ecg_queue.qsize()} / AI Queue Size: {self.ai_queue.qsize()}')
                     continue
             except KeyboardInterrupt:
                 self.redis.quit()
@@ -234,7 +243,6 @@ class HeartRateSender(mp.Process):
             logger.info(f"Mosquitto is connected, #{len(self.tb_msg_queue)} HRs are sent")
             self.mq_msg_queue = []
 
-
 class ECGUploader(mp.Process):
     '''It uploads ECGs to the AI Server.
     '''
@@ -244,70 +252,69 @@ class ECGUploader(mp.Process):
         self.host: str = host
         self.access_token: str = access_token
         self.upload_period: int = upload_period
-        self.uploaded_status: dict[str, int] = {}
+        self.uploaded_time: dict[str, int] = {}
+        self.uptodate_ecgs: dict[str, list[float]] = {}
         self.itersize: int = 40
-
+    
     def run(self):
+        logger.info(f"Start ECG Uplaoder")
+        ecg_maintainer = threading.Thread(target=self.maintain_ecgs, name='ECG Maintainer')
+        ecg_maintainer.start()
+        
         while True:
-            # collect Device's ECGs data
-            ecgbulks: list[ECGBulk] = []
+            upload_ecgs = {}
+            for device, epoch in self.uploaded_time.items():
+                if (self.uploaded_time[device] + self.upload_period) > int(time.time()):
+                    continue
+                upload_ecgs[device] = self.uptodate_ecgs[device]
+            
+            if upload_ecgs:
+                asyncio.run(self.send_ai_server(upload_ecgs))
+                logger.info(f'{self.upload_time}')
+            time.sleep(.5)
+    
+    def maintain_ecgs(self):
+        while True:
             if not self.queue.empty():
                 for _ in range(min(self.itersize, self.queue.qsize())):
                     ecgbulk = self.queue.get(True, 100)
-                    if ecgbulk.device not in self.uploaded_status:
-                        self.uploaded_status[ecgbulk.device] = 0
-                    is_passed_oneminute = (self.uploaded_status[ecgbulk.device] + self.upload_period) > int(time.time())
-                    if is_passed_oneminute:
-                        continue
-                    ecgbulks.append(ecgbulk)
+                    # Init ECG status
+                    if ecgbulk.device not in self.uploaded_time:
+                        self.uploaded_time[ecgbulk.device] = 0
+                    # maintain the up-to-date ECGs
+                    self.uptodate_ecgs[ecgbulk.device] = ecgbulk.values
+                time.sleep(.5)
+    
+    async def send_ai_server(self, uptodate_ecgs: dict[str, list[float]]):
+        tasks = [asyncio.create_task(self.upload_ecg(device, values)) for device, values in uptodate_ecgs.items()]
+        await asyncio.gather(*tasks)
+        for task in tasks:
+            logger.debug(task.result())
 
-            if len(ecgbulks) == 0:
-                continue
-
-            logger.info(f'#{len(ecgbulks)} ECGs will be sent to AI Server')
-            asyncio.run(self.upload_ecg_tasks(ecgbulks))
-            # self.cancel_pending_tasks()
-            logger.info(f'{self.upload_time}')
-            time.sleep(5)
-
-    async def upload_ecg(self, ecgbulk: ECGBulk) -> aiohttp.ClientResponse:
+    async def upload_ecg(self, device: str, values: list[float]) -> str:
         body = {
-            "serialNumber": ecgbulk.device,
+            "serialNumber": device,
             "requestTimestamp": int(time.time()),
             "requestSeconds": 60,
-            "ecgData": ecgbulk.values
+            "ecgData": values
         }
         payload = json.dumps(body)
         headers = {
             'Content-Type': 'application/json',
             'iomt-jwt': self.access_token
         }
-        self.uploaded_status[ecgbulk.device] = int(time.time())
-        logger.info(f"Device {ecgbulk.device}'s ECGs will be sent to AI Server")
+        logger.info(f"Device {device}'s ECGs will be sent to AI Server")
+        self.uploaded_time[device] = int(time.time())
         async with aiohttp.ClientSession() as session:
             async with session.post(self.host, headers=headers, data=payload) as response:
-                return response
-
-    async def upload_ecg_tasks(self, ecgbulks: list[ECGBulk]):
-        tasks = [asyncio.create_task(self.upload_ecg(ecgbulk)) for ecgbulk in ecgbulks]
-        await asyncio.gather(*tasks)
-
-    def cancel_pending_tasks(self):
-        pending = asyncio.all_tasks()
-        logger.info(f'#{len(pending)} Requests are in pending. They will be canceled')
-        for task in pending:
-            task.cancel()
-
-        try:
-            asyncio.run(asyncio.gather(*pending, return_exceptions=True))
-        except asyncio.CancelledError:
-            pass
+                data = await response.read()
+        return data.decode('utf-8')
 
     @property
     def upload_time(self, timezone: str = 'Asia/Seoul') -> dict[str, str]:
         status = {}
         tz = ZoneInfo(timezone)
-        for device, epoch in self.uploaded_status.items():
+        for device, epoch in self.uploaded_time.items():
             datetime = dt.datetime.fromtimestamp(epoch)
             status[device] = str(datetime.astimezone(tz))
         return status
