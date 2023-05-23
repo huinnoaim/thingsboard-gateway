@@ -8,6 +8,7 @@ from alarm_manager import AlarmManager
 
 
 client = MQTTClient(
+    hostname="host",
     url="mosquitto.karina-huinno.tk",
     port=1883,
     token=None
@@ -28,7 +29,7 @@ def handle_hr_message(client, userdata, msg):
 
 def handle_alarm_message(client, userdata, msg):
     payload = json.loads(msg.payload.decode())
-    # __alarm_manager.upsert_alarm(msg.topic, payload)
+    __alarm_manager.upsert_alarm(msg.topic, payload)
 
 def handle_alarm_rule_message(client, userdata, msg):
     payload = json.loads(msg.payload.decode())
@@ -37,11 +38,14 @@ def handle_alarm_rule_message(client, userdata, msg):
     else :
         __alarm_manager.upsert_alarm_rule(payload)
 
+def handle_reload_message(client, userdata, msg):
+    __alarm_manager.get_exam_with_serial_number()
 
 topic_handlers = {
     "devices/hr": handle_hr_message,
     "alarms/#": handle_alarm_message,
-    "noti/alarm-rules/#": handle_alarm_rule_message
+    "noti/alarm-rules/#": handle_alarm_rule_message,
+    "noti/reload": handle_reload_message
 }
 
 def on_message(client, userdata, msg):

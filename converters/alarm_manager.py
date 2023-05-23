@@ -18,8 +18,10 @@ class AlarmSeverity(Enum):
 class AlarmManager:
     def __init__(self, client:MQTTClient):
         self.alarm_rule = None
+        self.exam_serial = None
         self.client = client
         self.get_alarm_rule()
+        self.get_exam_with_serial_number()
 
     def get_alarm_rule(self):
         api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule'
@@ -31,10 +33,23 @@ class AlarmManager:
             if response.status_code == 200:
                 self.alarm_rule = response.json()
             else:
-                logger.error(f'Failed to upsert alarm. Status code: {response.status_code}')
+                logger.error(f'Failed to get alarm rule. Status code: {response.status_code}')
         except requests.exceptions.RequestException as e:
             logger.error(f'Error during API call: {e}')
 
+    def get_exam_with_serial_number(self):
+        api_url = 'https://iomt.karina-huinno.tk/webhook/exam_list'
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        try:
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                self.exam_serial = response.json()
+            else:
+                logger.error(f'Failed to exam with serial. Status code: {response.status_code}')
+        except requests.exceptions.RequestException as e:
+            logger.error(f'Error during API call: {e}')
 
     def upsert_alarm(self, topic, payload):
         topic_parts = topic.split('/')
@@ -69,6 +84,7 @@ class AlarmManager:
             if response.status_code != 200:
                 logger.error(f'Failed to upsert alarm rule. Status code: {response.status_code}')
             self.get_alarm_rule()
+            print(self.alarm_rule)
         except requests.exceptions.RequestException as e:
             logger.error(f'Error during API call: {e}')
 
@@ -79,11 +95,21 @@ class AlarmManager:
                 return rule
         return None
 
+    def get_exam_info(self, serial_number) :
+        for exam_info in self.exam_serial:
+            if exam_info.get('serial_number') == serial_number:
+                return exam_info
+        return None
+
     def check_alarm(self, serial_number, sensor_type, value):
+        exam_info = self.get_exam_info(serial_number)
+        if exam_info == None :
+            return
         rule = self.get_exam_rule(serial_number) if self.get_exam_rule(serial_number) is not None else self.get_exam_rule(None)
         condition = json.loads(rule["condition"])
+
         if sensor_type == "hr":
-            self.check_hr(condition["hrLimit"], int(value), rule["exam_ids"], rule["ward_id"], rule["hospital_id"])
+            self.check_hr(condition["hrLimit"], int(value), exam_info["examination_id"], exam_info["ward_id"], exam_info["hospital_id"])
 
     def check_hr(self, hr_alarm_limit, value, exam_id, ward_id, hospital_id):
         if hr_alarm_limit["RED"]["HIGH"] is not None and value > hr_alarm_limit["RED"]["HIGH"]:
@@ -93,7 +119,7 @@ class AlarmManager:
         elif hr_alarm_limit["YELLOW"]["HIGH"] is not None and value > hr_alarm_limit["YELLOW"]["HIGH"]:
             self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.MAJOR.value,f"{value} > {hr_alarm_limit['YELLOW']['HIGH']}", value, ward_id, hospital_id)
         elif hr_alarm_limit["YELLOW"]["LOW"] is not None and value < hr_alarm_limit["YELLOW"]["LOW"]:
-            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.MAJOR.value, f"{value} < {hr_alarm_limit['YELLOW']['LOW']}", value, ward_id, hospital_id)
+            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR LOW", AlarmSeverity.MAJOR.value, f"{value} < {hr_alarm_limit['YELLOW']['LOW']}", value, ward_id, hospital_id)
         return None
 
     def send_mqtt_alarm(self, status, examId, type, severity, limits, value, ward_id=1, hospital_id=123) :
