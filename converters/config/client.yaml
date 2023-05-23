@@ -30,3 +30,7 @@ redis:
   host: <put host>
   port: 6379
   password: <put password>
+aiServer:
+  host: <put host>
+  accessToken: <put access token>
+  uploadPeriodSec: 60
