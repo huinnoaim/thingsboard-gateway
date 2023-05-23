@@ -6,28 +6,6 @@ from mqtt_client import MQTTClient
 from alarm_manager import AlarmManager
 
 
-__alarm_manager = AlarmManager()
-
-
-def handle_telemetry_message(client, userdata, msg):
-    print('dd')
-
-
-def handle_alarm_message(client, userdata, msg):
-    payload = json.loads(msg.payload.decode())
-    if payload['originator'] == 'pm' :
-        __alarm_manager.upsert_alarm(msg.topic, payload)
-
-topic_handlers = {
-    "devices/+/telemetry1": handle_telemetry_message,
-    "alarms/#": handle_alarm_message,
-}
-
-def on_message(client, userdata, msg):
-    topic = msg.topic
-    for topic_pattern, handler in topic_handlers.items():
-        if mqtt.topic_matches_sub(topic_pattern, topic):
-            handler(client, userdata, msg)
 
 client = MQTTClient(
     url="mosquitto.karina-huinno.tk",
@@ -35,15 +13,42 @@ client = MQTTClient(
     token=None
 )
 
+__alarm_manager = AlarmManager(client)
 
-# 알람 룰 전부 불러오기(n8n에서) + examid 에 맞게 device 시리얼도 같이 긁어와야 매칭가능.
-# 텔레메트리가 들어오면 해당하는 룰에 비교해서 맞나 확인하기
-# 룰에 비교해서 알람조건에 해당하면 mqtt로 알람 발생시키기 + db에 insert or update하기.
+def handle_hr_message(client, userdata, msg):
+    payload = msg.payload.decode()
+    payload_slice = payload.split(":")
+    params = payload_slice[1]
+    params_slice = params.split(",")
+    sensor_type = payload_slice[0][5:]
+    value = params_slice[1]
+
+    __alarm_manager.check_alarm( params_slice[0].split("=")[1], sensor_type, value)
 
 
-# pmc, pm 에서 알람룰 업데이트 mqtt 도착시
-# db에 업데이트 or insert 해주고,
-# 룰 관리하는 메모리에서도 다시 로드함.
+def handle_alarm_message(client, userdata, msg):
+    payload = json.loads(msg.payload.decode())
+    # __alarm_manager.upsert_alarm(msg.topic, payload)
+
+def handle_alarm_rule_message(client, userdata, msg):
+    payload = json.loads(msg.payload.decode())
+    if 'from' in payload and payload['from'] == 'pmc' :
+        __alarm_manager.get_alarm_rule()
+    else :
+        __alarm_manager.upsert_alarm_rule(payload)
+
+
+topic_handlers = {
+    "devices/hr": handle_hr_message,
+    "alarms/#": handle_alarm_message,
+    "noti/alarm-rules/#": handle_alarm_rule_message
+}
+
+def on_message(client, userdata, msg):
+    topic = msg.topic
+    for topic_pattern, handler in topic_handlers.items():
+        if mqtt.topic_matches_sub(topic_pattern, topic):
+            handler(client, userdata, msg)
 
 client.connect()
 
@@ -55,4 +60,6 @@ client.client.on_message = on_message
 while True:
     pass
 
+
 client.disconnect()
+

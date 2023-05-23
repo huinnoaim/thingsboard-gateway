@@ -1,11 +1,41 @@
 import requests
 import logging
-
-
+import uuid
+import json
+from enum import Enum
 logger = logging.getLogger(__file__)
+from mqtt_client import MQTTClient
 
+class AlarmStatus(Enum):
+    ACK = 'ACTIVE_ACK'
+    UNACK = 'ACTIVE_UNACK'
+    CLEARED = 'CLEARED_ACK'
 
+class AlarmSeverity(Enum):
+    CRITICAL = 'CRITICAL'
+    MAJOR = 'MAJOR'
+    MINOR = 'MINOR'
 class AlarmManager:
+    def __init__(self, client:MQTTClient):
+        self.alarm_rule = None
+        self.client = client
+        self.get_alarm_rule()
+
+    def get_alarm_rule(self):
+        api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule'
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        try:
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                self.alarm_rule = response.json()
+            else:
+                logger.error(f'Failed to upsert alarm. Status code: {response.status_code}')
+        except requests.exceptions.RequestException as e:
+            logger.error(f'Error during API call: {e}')
+
+
     def upsert_alarm(self, topic, payload):
         topic_parts = topic.split('/')
         if len(topic_parts) != 4 or topic_parts[0] != 'alarms':
@@ -23,10 +53,74 @@ class AlarmManager:
 
         try:
             response = requests.post(api_url, headers=headers, json=payload)
-            if response.status_code == 200:
-                api_response = response.json()
-                return api_response
-            else:
+            if response.status_code != 200:
                 logger.error(f'Failed to upsert alarm. Status code: {response.status_code}')
         except requests.exceptions.RequestException as e:
             logger.error(f'Error during API call: {e}')
+
+    def upsert_alarm_rule(self, payload):
+        api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule_changed'
+        headers = {
+            'Content-Type': 'application/json',
+        }
+
+        try:
+            response = requests.post(api_url, headers=headers, json=payload)
+            if response.status_code != 200:
+                logger.error(f'Failed to upsert alarm rule. Status code: {response.status_code}')
+            self.get_alarm_rule()
+        except requests.exceptions.RequestException as e:
+            logger.error(f'Error during API call: {e}')
+
+
+    def get_exam_rule(self, serial_number) :
+        for rule in self.alarm_rule:
+            if rule.get('serial_number') == serial_number:
+                return rule
+        return None
+
+    def check_alarm(self, serial_number, sensor_type, value):
+        rule = self.get_exam_rule(serial_number) if self.get_exam_rule(serial_number) is not None else self.get_exam_rule(None)
+        condition = json.loads(rule["condition"])
+        if sensor_type == "hr":
+            self.check_hr(condition["hrLimit"], int(value), rule["exam_ids"], rule["ward_id"], rule["hospital_id"])
+
+    def check_hr(self, hr_alarm_limit, value, exam_id, ward_id, hospital_id):
+        if hr_alarm_limit["RED"]["HIGH"] is not None and value > hr_alarm_limit["RED"]["HIGH"]:
+            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.CRITICAL.value, f"{value} > {hr_alarm_limit['RED']['HIGH']}", value, ward_id, hospital_id)
+        elif hr_alarm_limit["RED"]["LOW"] is not None and value < hr_alarm_limit["RED"]["LOW"]:
+            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR LOW", AlarmSeverity.CRITICAL.value, f"{value} < {hr_alarm_limit['RED']['LOW']}", value, ward_id, hospital_id)
+        elif hr_alarm_limit["YELLOW"]["HIGH"] is not None and value > hr_alarm_limit["YELLOW"]["HIGH"]:
+            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.MAJOR.value,f"{value} > {hr_alarm_limit['YELLOW']['HIGH']}", value, ward_id, hospital_id)
+        elif hr_alarm_limit["YELLOW"]["LOW"] is not None and value < hr_alarm_limit["YELLOW"]["LOW"]:
+            self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.MAJOR.value, f"{value} < {hr_alarm_limit['YELLOW']['LOW']}", value, ward_id, hospital_id)
+        return None
+
+    def send_mqtt_alarm(self, status, examId, type, severity, limits, value, ward_id=1, hospital_id=123) :
+        generated_uuid = uuid.uuid4()
+        uuid_string = str(generated_uuid)
+        payload = {
+            "id" : uuid_string,
+            "status": status,
+            "exam_id": examId,
+            "type": type,
+            "severity": severity,
+            "originator":"n8n",
+            "limits":limits,
+            "sender_id":"n8n_workflow",
+            "pmc_volume":5,
+            "pm_volume":0,
+            "signalType":"HR",
+            "detail": {
+                "hrValue":value,
+                "spO2Value":"--",
+                "tempValue":"--",
+                "nbpData": {
+                    "systolic":"--",
+                    "diastolic":"--",
+                    "meanArterialPressure":"--",
+                    "timestamp":"1970-01-01T00:00:00.000Z"}
+            }
+        }
+        self.client.pub(f"alarms/{hospital_id}/{ward_id}/{examId}", json.dumps(payload))
+
