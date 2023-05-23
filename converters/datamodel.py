@@ -41,15 +41,23 @@ class HeartRate(NamedTuple):
 
 @dc.dataclass
 class HeartRateTelemetry:
-    TOPIC: ClassVar[str] = "v1/gateway/telemetry"
+    THINGSBOARD_TOPIC: ClassVar[str] = "v1/gateway/telemetry"
+    MOSQUITTO_TOPIC: ClassVar[str] = "devices/hr"
     heart_rates: list[HeartRate]
 
-    def export_message(self) -> Union[str, None]:
+    def export_thingsboard_message(self) -> Union[str, None]:
         msgs = {}
         for hr in self.heart_rates:
             msg = {f"{hr.device}": [{'ts': hr.ts, "values": {"hr": hr.value}}]}
             msgs.update(msg)
         return json.dumps(msgs) if msgs else None
+
+    def export_mosquitto_messages(self) -> Union[list[str], None]:
+        msgs = []
+        for hr in self.heart_rates:
+            msg = f"noti=hr:params={hr.device},{hr.value}"
+            msgs.append(msg)
+        return msgs if msgs else None
 
 
 @dc.dataclass

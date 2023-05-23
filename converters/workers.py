@@ -135,19 +135,22 @@ class HeartRateCalculator(threading.Thread):
 
 
 class HeartRateSender(mp.Process):
-    TOPIC = "v1/gateway/telemetry"
-
+    '''It sends heart rates to the MQTT hosts.
+    '''
     def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
         super().__init__()
         self.name = 'Heart Rate Sender'
         self.queue: mp.Queue[HeartRate] = queue
-        self.msg_queue: list[str] = []
+        self.tb_msg_queue: list[str] = []
+        self.mq_msg_queue: list[str] = []
         self.cfg_path = cfg_fpath
         self.itersize = 40
 
     def run(self):
-        self.mqtt_client = MQTTClient.from_cfgfile(self.cfg_path)
-        self.mqtt_client.start()
+        self.tb_client = MQTTClient.from_cfgfile('thingsboard', self.cfg_path)
+        self.tb_client.start()
+        self.mq_client = MQTTClient.from_cfgfile('mosquitto', self.cfg_path)
+        self.mq_client.start()
 
         while True:
             try:
@@ -164,28 +167,54 @@ class HeartRateSender(mp.Process):
 
                 # export a heart rate message and publish it to Thingsboard
                 hr_telemetry = HeartRateTelemetry(hrs)
-                msg = hr_telemetry.export_message()
-                if msg is None:
-                    continue
-
-                # if disconnected to Thingbosard, queuing the HR message
-                self.mqtt_client.pub(topic=hr_telemetry.TOPIC, message=msg)
-                if not self.mqtt_client.is_connected:
-                    self.msg_queue.append(msg)
-                    if len(self.msg_queue) % 1000 == 0:
-                        logger.warning(f"MQTT client is disconnected, #{len(self.msg_queue)} HRs are queued")
-                    continue
-
-                # if HR messages are queued and mqtt client is connected, publish the messages
-                if self.msg_queue and self.mqtt_client.is_connected:
-                    for msg in self.msg_queue:
-                        self.mqtt_client.pub(topic=self.TOPIC, message=msg)
-                    logger.info(f"MQTT client is connected, #{len(self.msg_queue)} HRs are sent")
-                    self.msg_queue = []
-
+                self.handle_thingsboard(hr_telemetry)
+                self.handle_mosquitto(hr_telemetry)
                 time.sleep(.2)
             except KeyboardInterrupt:
-                self.mqtt_client.disconnect()
+                self.tb_client.disconnect()
+
+
+    def handle_thingsboard(self, hr_telemetry: HeartRateTelemetry):
+        msg = hr_telemetry.export_thingsboard_message()
+        if msg is None:
+            return
+
+        # if disconnected to Thingbosard, queuing the HR message
+        self.tb_client.pub(topic=hr_telemetry.THINGSBOARD_TOPIC, message=msg)
+        if not self.tb_client.is_connected:
+            self.tb_msg_queue.append(msg)
+            if len(self.tb_msg_queue) % 1000 == 0:
+                logger.warning(f"Thingsboard is disconnected, #{len(self.tb_msg_queue)} HRs are queued")
+            return
+
+        # if HR messages are queued and mqtt client is connected, publish the messages
+        if self.tb_msg_queue and self.tb_client.is_connected:
+            for msg in self.tb_msg_queue:
+                self.tb_client.pub(topic=hr_telemetry.THINGSBOARD_TOPIC, message=msg)
+            logger.info(f"Thignsboard is connected, #{len(self.tb_msg_queue)} HRs are sent")
+            self.tb_msg_queue = []
+
+    def handle_mosquitto(self, hr_telemetry: HeartRateTelemetry):
+        msgs = hr_telemetry.export_mosquitto_messages()
+        if msgs is None:
+            return
+        for msg in msgs:
+            self.mq_client.pub(topic=hr_telemetry.MOSQUITTO_TOPIC, message=msg)
+
+        # if disconnected to Mosquitto, queuing the HR message
+        if not self.mq_client.is_connected:
+            self.mq_msg_queue.append(msgs)
+            if len(self.mq_msg_queue) % 1000 == 0:
+                logger.warning(f"Mosquitto is disconnected, #{len(self.mq_msg_queue)} HRs are queued")
+            return
+
+        # if HR messages are queued and mqtt client is connected, publish the messages
+        if self.mq_msg_queue and self.mq_client.is_connected:
+            for msgs in self.mq_msg_queue:
+                for msg in msgs:
+                    self.mq_client.pub(topic=hr_telemetry.MOSQUITTO_TOPIC, message=msg)
+            logger.info(f"Mosquitto is connected, #{len(self.tb_msg_queue)} HRs are sent")
+            self.mq_msg_queue = []
 
 
 class ECGUploader(mp.Process):
