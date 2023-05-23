@@ -29,6 +29,10 @@ class ECGBulk:
         values = [ecg.values for ecg in self.ecgs]
         return list(itertools.chain(*values))
 
+    def is_valid(self) -> bool:
+        devices = {ecg.device for ecg in self.ecgs}
+        return True if len(devices) == 1 else False
+
 
 class HeartRate(NamedTuple):
     device: str

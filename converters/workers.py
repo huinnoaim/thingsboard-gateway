@@ -3,9 +3,14 @@ import time
 import json
 import threading
 import multiprocessing as mp
-from typing import Union
+import asyncio
+import datetime as dt
+from typing import Any, Union
 from pathlib import Path
 from traceback import print_exc
+from zoneinfo import ZoneInfo
+
+import aiohttp
 
 from redis_client import Redis, RedisUtils
 from mqtt_client import MQTTClient
@@ -17,11 +22,12 @@ logger = logging.getLogger(__file__)
 
 
 class ECGWatcher(mp.Process):
-    def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
+    def __init__(self, ecg_queue: mp.Queue, ai_queue: mp.Queue, cfg_fpath: Union[Path, None] = None):
         super().__init__()
         self.name = 'ECG Watcher'
         self.redis = None
-        self.queue: mp.Queue[ECGBulk] = queue
+        self.ecg_queue: mp.Queue[ECGBulk] = ecg_queue
+        self.ai_queue: mp.Queue[ECGBulk] = ai_queue
         self.cfgpath = cfg_fpath
         self.last_ecg_idx = {}
         self.num_of_required_ecg = 24  # ecg interval is 2.5 sec, 2.5* 24 = 60 sec
@@ -77,8 +83,9 @@ class ECGWatcher(mp.Process):
                         ecg = ECG(device, raw['ts'], raw['ecg'])
                         ecgs.append(ecg)
 
-                    self.queue.put(ECGBulk(ecgs))
-                    logger.info(f'Device {device} ECG data is transfered to HR Calculator, ECG Queue Size: {self.queue.qsize()}')
+                    self.ecg_queue.put(ECGBulk(ecgs))
+                    self.ai_queue.put(ECGBulk(ecgs))
+                    logger.info(f'Device {device} ECG data is transfered to HR Calculator, ECG Queue Size: {self.ecg_queue.qsize()}')
                     continue
             except KeyboardInterrupt:
                 self.redis.quit()
@@ -179,3 +186,84 @@ class HeartRateSender(mp.Process):
                 time.sleep(.2)
             except KeyboardInterrupt:
                 self.mqtt_client.disconnect()
+
+
+class ECGUploader(mp.Process):
+    '''It uploads ECGs to the AI Server.
+    '''
+    HTTP_REQUEST_DELAY_SEC = 0.2
+    IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
+    UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
+    TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
+    ONEMINUTE = 60
+
+    def __init__(self, queue: mp.Queue):
+        super().__init__()
+        self.queue: mp.Queue[ECGBulk] = queue
+        self.itersize: int = 40
+        self.uploaded_status: dict[str, int] = {}
+
+    def run(self):
+        while True:
+            # collect Device's ECGs data
+            ecgbulks: list[ECGBulk] = []
+            if not self.queue.empty():
+                for _ in range(min(self.itersize, self.queue.qsize())):
+                    ecgbulk = self.queue.get(True, 100)
+                    if ecgbulk.device not in self.uploaded_status:
+                        self.uploaded_status[ecgbulk.device] = 0
+                    is_passed_oneminute = (self.uploaded_status[ecgbulk.device] + self.ONEMINUTE) > int(time.time())
+                    if is_passed_oneminute:
+                        continue
+                    ecgbulks.append(ecgbulk)
+
+            if len(ecgbulks) == 0:
+                continue
+
+            logger.info(f'#{len(ecgbulks)} ECGs will be sent to AI Server')
+            asyncio.run(self.upload_ecg_tasks(ecgbulks))
+            # self.cancel_pending_tasks()
+            logger.info(f'{self.upload_time}')
+            time.sleep(5)
+
+    async def upload_ecg(self, ecgbulk: ECGBulk) -> aiohttp.ClientResponse:
+        body = {
+            "serialNumber": ecgbulk.device,
+            "requestTimestamp": int(time.time()),
+            "requestSeconds": 60,
+            "ecgData": ecgbulk.values
+        }
+        payload = json.dumps(body)
+        headers = {
+            'Content-Type': 'application/json',
+            'iomt-jwt': self.IOMT_JWT
+        }
+        self.uploaded_status[ecgbulk.device] = int(time.time())
+        logger.info(f"Device {ecgbulk.device}'s ECGs will be sent to AI Server")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self.UPLOAD_URL, headers=headers, data=payload) as response:
+                return response
+
+    async def upload_ecg_tasks(self, ecgbulks: list[ECGBulk]):
+        tasks = [asyncio.create_task(self.upload_ecg(ecgbulk)) for ecgbulk in ecgbulks]
+        await asyncio.gather(*tasks)
+
+    def cancel_pending_tasks(self):
+        pending = asyncio.all_tasks()
+        logger.info(f'#{len(pending)} Requests are in pending. They will be canceled')
+        for task in pending:
+            task.cancel()
+
+        try:
+            asyncio.run(asyncio.gather(*pending, return_exceptions=True))
+        except asyncio.CancelledError:
+            pass
+
+    @property
+    def upload_time(self, timezone: str = 'Asia/Seoul') -> dict[str, str]:
+        status = {}
+        tz = ZoneInfo(timezone)
+        for device, epoch in self.uploaded_status.items():
+            datetime = dt.datetime.fromtimestamp(epoch)
+            status[device] = str(datetime.astimezone(tz))
+        return status

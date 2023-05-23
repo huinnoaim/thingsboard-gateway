@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from workers import ECGWatcher, HeartRateCalculator, HeartRateSender
+from workers import ECGWatcher, HeartRateCalculator, HeartRateSender, ECGUploader
 from datamodel import HeartRate, ECG, ECGBulk
 
 logger = logging.getLogger(__file__)
@@ -69,25 +69,31 @@ def main(args: argparse.Namespace):
         update_cfgfile(envs, args.cfg_fpath)
 
     ecg_queue: mp.Queue[ECGBulk] = mp.Queue()
+    ai_queue: mp.Queue[ECGBulk] = mp.Queue()
     hr_queue: mp.Queue[HeartRate] = mp.Queue()
 
-    watcher = ECGWatcher(ecg_queue)
+    watcher = ECGWatcher(ecg_queue, ai_queue)
     watcher.start()
 
     calculator = HeartRateCalculator(incoming_queue=ecg_queue, outgoing_queue=hr_queue)
     calculator.start()
 
-    sender = HeartRateSender(hr_queue)
-    sender.start()
+    hr_sender = HeartRateSender(hr_queue)
+    hr_sender.start()
+
+    ecg_uploader = ECGUploader(ai_queue)
+    ecg_uploader.start()
 
     while True:
         try:
             pass
         except KeyboardInterrupt:
             watcher.close()
-            sender.close()
+            hr_sender.close()
+            ecg_uploader.close()
 
             ecg_queue.close()
+            ai_queue.close()
             hr_queue.close()
             sys.exit(0)
     #     # manager.start()

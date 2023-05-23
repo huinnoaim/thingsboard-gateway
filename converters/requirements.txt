@@ -3,3 +3,4 @@ redis
 paho-mqtt
 scipy
 python-dotenv
+aiohttp
