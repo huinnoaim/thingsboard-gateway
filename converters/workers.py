@@ -1,3 +1,5 @@
+from __future__ import annotations
+import os
 import logging
 import time
 import json
@@ -11,6 +13,7 @@ from traceback import print_exc
 from zoneinfo import ZoneInfo
 
 import aiohttp
+import yaml
 
 from redis_client import Redis, RedisUtils
 from mqtt_client import MQTTClient
@@ -19,6 +22,8 @@ import hr_detector
 
 
 logger = logging.getLogger(__file__)
+
+DEFAULT_CFG_PATH = '/config/client.yaml'
 
 
 class ECGWatcher(mp.Process):
@@ -220,17 +225,14 @@ class HeartRateSender(mp.Process):
 class ECGUploader(mp.Process):
     '''It uploads ECGs to the AI Server.
     '''
-    HTTP_REQUEST_DELAY_SEC = 0.2
-    IOMT_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3NDEzOTM2NTksImlkIjoiNWxjcWJjNXd1amZ1OXZwIiwidHlwZSI6ImF1dGhSZWNvcmQifQ._6EopNSD_yecWpn_qrP8J7wU_ZoM86JOK1Z1sOFMPwQ'
-    UPLOAD_URL = "https://iomt.karina-huinno.tk/iomt-api/examinations/upload-source-data"
-    TRIGGER_BASE_URL = "https://iomt.karina-huinno.tk/iomt-api/"
-    ONEMINUTE = 60
-
-    def __init__(self, queue: mp.Queue):
+    def __init__(self, queue: mp.Queue, host: str, access_token: str, upload_period: int):
         super().__init__()
         self.queue: mp.Queue[ECGBulk] = queue
-        self.itersize: int = 40
+        self.host: str = host
+        self.access_token: str = access_token
+        self.upload_period: int = upload_period
         self.uploaded_status: dict[str, int] = {}
+        self.itersize: int = 40
 
     def run(self):
         while True:
@@ -241,7 +243,7 @@ class ECGUploader(mp.Process):
                     ecgbulk = self.queue.get(True, 100)
                     if ecgbulk.device not in self.uploaded_status:
                         self.uploaded_status[ecgbulk.device] = 0
-                    is_passed_oneminute = (self.uploaded_status[ecgbulk.device] + self.ONEMINUTE) > int(time.time())
+                    is_passed_oneminute = (self.uploaded_status[ecgbulk.device] + self.upload_period) > int(time.time())
                     if is_passed_oneminute:
                         continue
                     ecgbulks.append(ecgbulk)
@@ -265,12 +267,12 @@ class ECGUploader(mp.Process):
         payload = json.dumps(body)
         headers = {
             'Content-Type': 'application/json',
-            'iomt-jwt': self.IOMT_JWT
+            'iomt-jwt': self.access_token
         }
         self.uploaded_status[ecgbulk.device] = int(time.time())
         logger.info(f"Device {ecgbulk.device}'s ECGs will be sent to AI Server")
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.UPLOAD_URL, headers=headers, data=payload) as response:
+            async with session.post(self.host, headers=headers, data=payload) as response:
                 return response
 
     async def upload_ecg_tasks(self, ecgbulks: list[ECGBulk]):
@@ -296,3 +298,18 @@ class ECGUploader(mp.Process):
             datetime = dt.datetime.fromtimestamp(epoch)
             status[device] = str(datetime.astimezone(tz))
         return status
+
+    @staticmethod
+    def from_cfgfile(queue: mp.Queue, fpath: Path) -> ECGUploader:
+        dirname = os.path.dirname(os.path.abspath(__file__))
+        cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', os.path.sep)
+        cfg_file = cfg_file if fpath is None else fpath
+
+        with open(cfg_file) as general_config:
+            full_cfg = yaml.safe_load(general_config)
+
+        cfg = full_cfg['aiServer']
+        host = cfg['host']
+        access_token = cfg['accessToken']
+        upload_period = cfg['uploadPeriodSec']
+        return ECGUploader(queue, host, access_token, upload_period)
