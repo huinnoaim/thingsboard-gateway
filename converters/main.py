@@ -21,9 +21,13 @@ class Envs(NamedTuple):
     REDIS_HOST: str
     REDIS_PORT: int
     REDIS_PASSWORD: str
-    MQTT_HOST: str
-    MQTT_PORT: int
-    MQTT_ACCESS_TOKEN: str
+    MQTT_THINGSBOARD_HOST: str
+    MQTT_THINGSBOARD_PORT: int
+    MQTT_THINGSBOARD_ACCESS_TOKEN: str
+    MQTT_MOSQUITTO_HOST: str
+    MQTT_MOSQUITTO_PORT: int
+    AI_HOST: str
+    AI_ACCESS_TOKEN: str
 
     @staticmethod
     def getenv(fpath: Path| None = None) -> Envs:
@@ -45,12 +49,18 @@ def update_cfgfile(envs: Envs, cfg_fpath: Path):
     '''
     with open(cfg_fpath, 'r') as f:
         yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
-        yaml_data['thingsboard']['host'] = envs.MQTT_HOST
-        yaml_data['thingsboard']['port'] = envs.MQTT_PORT
-        yaml_data['thingsboard']['security']['accessToken'] = envs.MQTT_ACCESS_TOKEN
+        yaml_data['mqtt']['thingsboard']['host'] = envs.MQTT_THINGSBOARD_HOST
+        yaml_data['mqtt']['thingsboard']['port'] = envs.MQTT_THINGSBOARD_PORT
+        yaml_data['mqtt']['thingsboard']['accessToken'] = envs.MQTT_THINGSBOARD_ACCESS_TOKEN
+        yaml_data['mqtt']['mosquitto']['host'] = envs.MQTT_MOSQUITTO_HOST
+        yaml_data['mqtt']['mosquitto']['port'] = envs.MQTT_MOSQUITTO_PORT
+
         yaml_data['redis']['host'] = envs.REDIS_HOST
         yaml_data['redis']['port'] = envs.REDIS_PORT
         yaml_data['redis']['password'] = envs.REDIS_PASSWORD
+
+        yaml_data['aiServer']['host'] = envs.AI_HOST
+        yaml_data['aiServer']['accessToken'] = envs.AI_ACCESS_TOKEN
 
     with open(cfg_fpath, 'w') as f:
         yaml.safe_dump(yaml_data, f)
@@ -81,7 +91,7 @@ def main(args: argparse.Namespace):
     hr_sender = HeartRateSender(hr_queue)
     hr_sender.start()
 
-    ecg_uploader = ECGUploader(ai_queue)
+    ecg_uploader = ECGUploader.from_cfgfile(ai_queue, args.cfg_fpath)
     ecg_uploader.start()
 
     while True:

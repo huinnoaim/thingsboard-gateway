@@ -23,9 +23,11 @@ RESULT_CODES = {
 
 
 class MQTTClient(threading.Thread):
-    def __init__(self, url: str, port: int, token: str, keep_alive: int=120, min_reconnect_delay: int=10, timeout: int=120):
+    def __init__(self, hostname: str, url: str, port: int, token: Union[str, None], keep_alive: int=120, min_reconnect_delay: int=10, timeout: int=120):
         super().__init__()
-        self.setName('MQTT Connector')
+        self.setName(f'{hostname} MQTT Connector')
+        self.isDaemon = True
+        self.hostname: str = hostname
         self.url: str = url
         self.port: int = port
         self.token: str = token
@@ -53,7 +55,7 @@ class MQTTClient(threading.Thread):
         self.client.disconnect()
 
     def on_publish(self, client, userdata, mid):
-        logger.info("Message published")
+        logger.info(f"Message published to {self.hostname}")
 
     def connect(self):
         if self.token:
@@ -69,15 +71,15 @@ class MQTTClient(threading.Thread):
         self.client.subscribe(topic, qos)
 
     def run(self):
-        logger.info('Start MQTT Connector')
+        logger.info(f'Start {self.hostname} MQTT Connector')
         try:
             while not self.client.is_connected():
-                logger.info(f"connecting to ThingsBoard: {self.url}:{self.port}")
+                logger.info(f"connecting to {self.hostname}: {self.url}:{self.port}")
                 try:
                     self.connect()
-                    logger.info('connected')
+                    logger.info(f'connected to {self.hostname}')
                 except ConnectionRefusedError as e:
-                    logger.error('ConnectionRefusedError', e)
+                    logger.error(f'{self.hostname}, ConnectionRefusedError', e)
                     pass
                 except Exception as e:
                     logger.exception(e)
@@ -91,7 +93,7 @@ class MQTTClient(threading.Thread):
         return self.client.is_connected()
 
     @staticmethod
-    def from_cfgfile(fpath: Union[Path, None] = None) -> MQTTClient:
+    def from_cfgfile(hostname: str, fpath: Union[Path, None] = None) -> MQTTClient:
         dirname = os.path.dirname(os.path.abspath(__file__))
         cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', os.path.sep)
         cfg_file = cfg_file if fpath is None else fpath
@@ -99,14 +101,15 @@ class MQTTClient(threading.Thread):
         with open(cfg_file) as general_config:
             full_cfg = yaml.safe_load(general_config)
 
-        cfg = full_cfg['thingsboard']
+        cfg: dict = full_cfg['mqtt'][hostname]
         host = cfg['host']
         port = cfg['port']
-        access_token = cfg['security']['accessToken']
+        access_token = cfg.get('accessToken', None)
         keep_alive = cfg['connection']['keepAlive']
         min_reconnect_delay = cfg['connection']['minReconnectDelay']
         timeout = cfg['connection']['timeout']
-        return MQTTClient(url=host,
+        return MQTTClient(hostname=hostname,
+                          url=host,
                           port=port,
                           token=access_token,
                           keep_alive=keep_alive,
