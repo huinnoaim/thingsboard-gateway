@@ -85,7 +85,7 @@ def main(args: argparse.Namespace):
     watcher = ECGWatcher(ecg_queue, ai_queue)
     watcher.start()
 
-    calculator = HeartRateCalculator(incoming_queue=ecg_queue, outgoing_queue=hr_queue)
+    calculator = HeartRateCalculator.from_cfgfile(ecg_queue, hr_queue, args.cfg_fpath)
     calculator.start()
 
     hr_sender = HeartRateSender(hr_queue)

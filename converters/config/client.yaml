@@ -15,11 +15,17 @@ mqtt:
       keepAlive: 120
       minReconnectDelay: 10
       timeout: 120
+
 redis:
   host: <put host>
   port: 6379
   password: <put password>
+
 aiServer:
   host: <put host>
   accessToken: <put access token>
   uploadPeriodSec: 60
+
+heartRate:
+  calculator:
+    jobsPerProcess: 10

@@ -101,13 +101,13 @@ class ECGWatcher(mp.Process):
 class HeartRateCalculator(threading.Thread):
     '''It calculates Heart Rates by using a multi-processing and put it to the outgoing queue.
     '''
-    def __init__(self, incoming_queue: mp.Queue, outgoing_queue: mp.Queue):
+    def __init__(self, incoming_queue: mp.Queue, outgoing_queue: mp.Queue, n_jobs: int=10):
         super().__init__()
         self.setName('Heart Rate Calculator')
         self.ecg_queue: mp.Queue[ECGBulk] = incoming_queue
         self.hr_queue: mp.Queue[HeartRate] = outgoing_queue
+        self.num_jobs = n_jobs
         self.itersize = 40
-        self.num_jobs = 10
 
     def run(self):
         while True:
@@ -137,6 +137,19 @@ class HeartRateCalculator(threading.Thread):
         hr = hr_detector.detect(ecgbulk.values, 250)
         milliseconds = round(time.time() * 1000)
         return HeartRate(ecgbulk.device, milliseconds, hr)
+
+    @staticmethod
+    def from_cfgfile(ecg_queue: mp.Queue, hr_queue: mp.Queue, fpath: Path) -> HeartRateCalculator:
+        dirname = os.path.dirname(os.path.abspath(__file__))
+        cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', os.path.sep)
+        cfg_file = cfg_file if fpath is None else fpath
+
+        with open(cfg_file) as general_config:
+            full_cfg = yaml.safe_load(general_config)
+
+        cfg = full_cfg['heartRate']['calculator']
+        num_jobs = cfg['jobsPerProcess']
+        return HeartRateCalculator(ecg_queue, hr_queue, num_jobs)
 
 
 class HeartRateSender(mp.Process):
