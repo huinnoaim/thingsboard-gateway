@@ -1,0 +1,10 @@
+mqtt:
+  thingsboard:
+    url: <put host url>
+    port: 8081
+    accessToken: <put access token>
+    qos: 1
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120

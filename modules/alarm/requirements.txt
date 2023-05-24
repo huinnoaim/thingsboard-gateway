@@ -1,0 +1,4 @@
+PyYAML
+paho-mqtt
+python-dotenv
+requests

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import logging
 from pathlib import Path
 from os import path
@@ -6,6 +7,8 @@ from typing import Union
 
 import yaml
 from redis import ConnectionError, Redis as RedisBase
+
+from modules.connectors import DEFAULT_CFG_DIRPATH
 
 
 logging.basicConfig(level=logging.INFO)
@@ -46,18 +49,17 @@ class Redis(RedisBase):
 
     @staticmethod
     def from_cfgfile(fpath: Union[Path, None] = None) -> Redis:
-        dirname = path.dirname(path.abspath(__file__))
-        cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', path.sep)
+        cfg_file = os.path.join(DEFAULT_CFG_DIRPATH, 'client.yaml')
         cfg_file = cfg_file if fpath is None else fpath
 
         with open(cfg_file) as general_config:
             full_cfg = yaml.safe_load(general_config)
 
         cfg = full_cfg['redis']
-        host = cfg['host']
+        url = cfg['url']
         port = cfg['port']
         password = cfg['password']
-        return Redis(host=host, port=port, password=password)
+        return Redis(host=url, port=port, password=password)
 
 
 class RedisUtils:

@@ -1,6 +1,6 @@
 mqtt:
   thingsboard:
-    host: <put host>
+    url: <put host url>
     port: 8081
     accessToken: <put access token>
     qos: 1
@@ -9,7 +9,7 @@ mqtt:
       minReconnectDelay: 10
       timeout: 120
   mosquitto:
-    host: <put host>
+    url: <put host url>
     port: 1883
     connection:
       keepAlive: 120
@@ -17,12 +17,12 @@ mqtt:
       timeout: 120
 
 redis:
-  host: <put host>
+  url: <put host url>
   port: 6379
   password: <put password>
 
 aiServer:
-  host: <put host>
+  url: <put host url>
   accessToken: <put access token>
   uploadPeriodSec: 60
 

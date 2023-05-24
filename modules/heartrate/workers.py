@@ -16,8 +16,7 @@ import dataclasses as dc
 import aiohttp
 import yaml
 
-from redis_client import Redis, RedisUtils
-from mqtt_client import MQTTClient
+from modules.connectors import Redis, RedisUtils, MQTTClient
 from datamodel import ECGBulk, ECG, HeartRate, HeartRateTelemetry
 import hr_detector
 

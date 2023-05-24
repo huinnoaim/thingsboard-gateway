@@ -11,23 +11,23 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from workers import ECGWatcher, HeartRateCalculator, HeartRateSender, ECGUploader
-from datamodel import HeartRate, ECG, ECGBulk
+from modules.heartrate.workers import ECGWatcher, HeartRateCalculator, HeartRateSender, ECGUploader
+from modules.heartrate.datamodel import HeartRate, ECGBulk
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)
 
 class Envs(NamedTuple):
-    REDIS_HOST: str
+    REDIS_URL: str
     REDIS_PORT: int
     REDIS_PASSWORD: str
-    MQTT_THINGSBOARD_HOST: str
+    MQTT_THINGSBOARD_URL: str
     MQTT_THINGSBOARD_PORT: int
     MQTT_THINGSBOARD_ACCESS_TOKEN: str
-    MQTT_MOSQUITTO_HOST: str
+    MQTT_MOSQUITTO_URL: str
     MQTT_MOSQUITTO_PORT: int
-    AI_HOST: str
-    AI_ACCESS_TOKEN: str
+    AI_SERVER_URL: str
+    AI_SERVER_ACCESS_TOKEN: str
 
     @staticmethod
     def getenv(fpath: Path| None = None) -> Envs:
@@ -49,18 +49,18 @@ def update_cfgfile(envs: Envs, cfg_fpath: Path):
     '''
     with open(cfg_fpath, 'r') as f:
         yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
-        yaml_data['mqtt']['thingsboard']['host'] = envs.MQTT_THINGSBOARD_HOST
+        yaml_data['mqtt']['thingsboard']['url'] = envs.MQTT_THINGSBOARD_URL
         yaml_data['mqtt']['thingsboard']['port'] = envs.MQTT_THINGSBOARD_PORT
         yaml_data['mqtt']['thingsboard']['accessToken'] = envs.MQTT_THINGSBOARD_ACCESS_TOKEN
-        yaml_data['mqtt']['mosquitto']['host'] = envs.MQTT_MOSQUITTO_HOST
+        yaml_data['mqtt']['mosquitto']['url'] = envs.MQTT_MOSQUITTO_URL
         yaml_data['mqtt']['mosquitto']['port'] = envs.MQTT_MOSQUITTO_PORT
 
-        yaml_data['redis']['host'] = envs.REDIS_HOST
+        yaml_data['redis']['url'] = envs.REDIS_URL
         yaml_data['redis']['port'] = envs.REDIS_PORT
         yaml_data['redis']['password'] = envs.REDIS_PASSWORD
 
-        yaml_data['aiServer']['host'] = envs.AI_HOST
-        yaml_data['aiServer']['accessToken'] = envs.AI_ACCESS_TOKEN
+        yaml_data['aiServer']['url'] = envs.AI_SERVER_URL
+        yaml_data['aiServer']['accessToken'] = envs.AI_SERVER_ACCESS_TOKEN
 
     with open(cfg_fpath, 'w') as f:
         yaml.safe_dump(yaml_data, f)

@@ -1,10 +1,14 @@
-import requests
 import logging
 import uuid
 import json
 from enum import Enum
+
+import requests
+
+from modules.connectors import MQTTClient
+
+
 logger = logging.getLogger(__file__)
-from mqtt_client import MQTTClient
 
 class AlarmStatus(Enum):
     ACK = 'ACTIVE_ACK'

@@ -9,10 +9,11 @@ import threading
 import yaml
 import paho.mqtt.client as mqtt
 
+from modules.connectors import DEFAULT_CFG_DIRPATH
+
 
 logger = logging.getLogger(__file__)
 
-DEFAULT_CFG_PATH = '/config/client.yaml'
 RESULT_CODES = {
     1: "incorrect protocol version",
     2: "invalid client identifier",
@@ -93,23 +94,22 @@ class MQTTClient(threading.Thread):
         return self.client.is_connected()
 
     @staticmethod
-    def from_cfgfile(hostname: str, fpath: Union[Path, None] = None) -> MQTTClient:
-        dirname = os.path.dirname(os.path.abspath(__file__))
-        cfg_file = dirname + DEFAULT_CFG_PATH.replace('/', os.path.sep)
+    def from_cfgfile(hostname: str = 'localhost', fpath: Union[Path, None] = None) -> MQTTClient:
+        cfg_file = os.path.join(DEFAULT_CFG_DIRPATH, 'client.yaml')
         cfg_file = cfg_file if fpath is None else fpath
 
         with open(cfg_file) as general_config:
             full_cfg = yaml.safe_load(general_config)
 
         cfg: dict = full_cfg['mqtt'][hostname]
-        host = cfg['host']
+        url = cfg['url']
         port = cfg['port']
         access_token = cfg.get('accessToken', None)
         keep_alive = cfg['connection']['keepAlive']
         min_reconnect_delay = cfg['connection']['minReconnectDelay']
         timeout = cfg['connection']['timeout']
         return MQTTClient(hostname=hostname,
-                          url=host,
+                          url=url,
                           port=port,
                           token=access_token,
                           keep_alive=keep_alive,

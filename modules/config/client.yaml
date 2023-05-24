@@ -1,0 +1,38 @@
+mqtt:
+  localhost:
+    url: 127.0.0.1
+    port: 1883
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+  thingsboard:
+    url: <put host url>
+    port: 8081
+    accessToken: <put access token>
+    qos: 1
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+  mosquitto:
+    url: <put host url>
+    port: 1883
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+
+redis:
+  url: <put host url>
+  port: 6379
+  password: <put password>
+
+aiServer:
+  url: <put host url>
+  accessToken: <put access token>
+  uploadPeriodSec: 60
+
+heartRate:
+  calculator:
+    jobsPerProcess: 10
