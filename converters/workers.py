@@ -7,10 +7,11 @@ import threading
 import multiprocessing as mp
 import asyncio
 import datetime as dt
-from typing import Any, Union
+from typing import Any, Union, NamedTuple
 from pathlib import Path
 from traceback import print_exc
 from zoneinfo import ZoneInfo
+import dataclasses as dc
 
 import aiohttp
 import yaml
@@ -91,11 +92,11 @@ class ECGWatcher(mp.Process):
                     except TypeError as e:
                         print_exc()
                         logger.warning('Fail to read ECG data from Redis')
-                    
+
                     # No ECG data
                     if not ecgs:
                         continue
-                    
+
                     # transfer ECG data
                     self.ecg_queue.put(ECGBulk(ecgs))
                     self.ai_queue.put(ECGBulk(ecgs))
@@ -252,39 +253,39 @@ class ECGUploader(mp.Process):
         self.host: str = host
         self.access_token: str = access_token
         self.upload_period: int = upload_period
-        self.uploaded_time: dict[str, int] = {}
-        self.uptodate_ecgs: dict[str, list[float]] = {}
+        self.uptodate_ecgs: dict[str, ECGUploader.ECG] = {}
         self.itersize: int = 40
-    
+
     def run(self):
         logger.info(f"Start ECG Uplaoder")
         ecg_maintainer = threading.Thread(target=self.maintain_ecgs, name='ECG Maintainer')
         ecg_maintainer.start()
-        
+
         while True:
-            upload_ecgs = {}
-            for device, epoch in self.uploaded_time.items():
-                if (self.uploaded_time[device] + self.upload_period) > int(time.time()):
+            upload_ecgs: dict[str, list[float]] = {}
+            for device in self.uptodate_ecgs.keys():
+                device_uptodate_ecg: ECGUploader.ECG = self.uptodate_ecgs[device]
+                if (device_uptodate_ecg.upload_ts + self.upload_period) > int(time.time()):
                     continue
-                upload_ecgs[device] = self.uptodate_ecgs[device]
-            
+                upload_ecgs[device] = device_uptodate_ecg.values
+                device_uptodate_ecg.upload_ts = int(time.time())
+
             if upload_ecgs:
                 asyncio.run(self.send_ai_server(upload_ecgs))
                 logger.info(f'{self.upload_time}')
             time.sleep(.5)
-    
+
     def maintain_ecgs(self):
         while True:
             if not self.queue.empty():
                 for _ in range(min(self.itersize, self.queue.qsize())):
                     ecgbulk = self.queue.get(True, 100)
-                    # Init ECG status
-                    if ecgbulk.device not in self.uploaded_time:
-                        self.uploaded_time[ecgbulk.device] = 0
+                    if ecgbulk.device not in self.uptodate_ecgs:
+                        self.uptodate_ecgs[ecgbulk.device] = ECGUploader.ECG()  # init ECG
                     # maintain the up-to-date ECGs
-                    self.uptodate_ecgs[ecgbulk.device] = ecgbulk.values
+                    self.uptodate_ecgs[ecgbulk.device].values = ecgbulk.values
                 time.sleep(.5)
-    
+
     async def send_ai_server(self, uptodate_ecgs: dict[str, list[float]]):
         tasks = [asyncio.create_task(self.upload_ecg(device, values)) for device, values in uptodate_ecgs.items()]
         await asyncio.gather(*tasks)
@@ -304,7 +305,6 @@ class ECGUploader(mp.Process):
             'iomt-jwt': self.access_token
         }
         logger.info(f"Device {device}'s ECGs will be sent to AI Server")
-        self.uploaded_time[device] = int(time.time())
         async with aiohttp.ClientSession() as session:
             async with session.post(self.host, headers=headers, data=payload) as response:
                 data = await response.read()
@@ -313,10 +313,8 @@ class ECGUploader(mp.Process):
     @property
     def upload_time(self, timezone: str = 'Asia/Seoul') -> dict[str, str]:
         status = {}
-        tz = ZoneInfo(timezone)
-        for device, epoch in self.uploaded_time.items():
-            datetime = dt.datetime.fromtimestamp(epoch)
-            status[device] = str(datetime.astimezone(tz))
+        for device, ecg in self.uptodate_ecgs.items():
+            status[device] = str(ecg.get_upload_dt(timezone))
         return status
 
     @staticmethod
@@ -333,3 +331,14 @@ class ECGUploader(mp.Process):
         access_token = cfg['accessToken']
         upload_period = cfg['uploadPeriodSec']
         return ECGUploader(queue, host, access_token, upload_period)
+
+
+    @dc.dataclass
+    class ECG:
+        upload_ts: int = dc.field(default=0)
+        values: list[float] = dc.field(default_factory=list)
+
+        def get_upload_dt(self, timezone: str = 'Asia/Seoul') -> dt.datetime:
+            datetime = dt.datetime.fromtimestamp(self.upload_ts)
+            return datetime.astimezone(ZoneInfo(timezone))
+
