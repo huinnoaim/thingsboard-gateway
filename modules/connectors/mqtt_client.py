@@ -24,9 +24,18 @@ RESULT_CODES = {
 
 
 class MQTTClient(threading.Thread):
-    def __init__(self, hostname: str, url: str, port: int, token: Union[str, None], keep_alive: int=120, min_reconnect_delay: int=10, timeout: int=120):
+    def __init__(
+        self,
+        hostname: str,
+        url: str,
+        port: int,
+        token: Union[str, None],
+        keep_alive: int = 120,
+        min_reconnect_delay: int = 10,
+        timeout: int = 120,
+    ):
         super().__init__()
-        self.setName(f'{hostname} MQTT Connector')
+        self.setName(f"{hostname} MQTT Connector")
         self.isDaemon = True
         self.hostname: str = hostname
         self.url: str = url
@@ -72,15 +81,15 @@ class MQTTClient(threading.Thread):
         self.client.subscribe(topic, qos)
 
     def run(self):
-        logger.info(f'Start {self.hostname} MQTT Connector')
+        logger.info(f"Start {self.hostname} MQTT Connector")
         try:
             while not self.client.is_connected():
                 logger.info(f"connecting to {self.hostname}: {self.url}:{self.port}")
                 try:
                     self.connect()
-                    logger.info(f'connected to {self.hostname}')
+                    logger.info(f"connected to {self.hostname}")
                 except ConnectionRefusedError as e:
-                    logger.error(f'{self.hostname}, ConnectionRefusedError', e)
+                    logger.error(f"{self.hostname}, ConnectionRefusedError", e)
                     pass
                 except Exception as e:
                     logger.exception(e)
@@ -94,24 +103,28 @@ class MQTTClient(threading.Thread):
         return self.client.is_connected()
 
     @staticmethod
-    def from_cfgfile(hostname: str = 'localhost', fpath: Union[Path, None] = None) -> MQTTClient:
-        cfg_file = os.path.join(DEFAULT_CFG_DIRPATH, 'client.yaml')
+    def from_cfgfile(
+        hostname: str = "localhost", fpath: Union[Path, None] = None
+    ) -> MQTTClient:
+        cfg_file = os.path.join(DEFAULT_CFG_DIRPATH, "client.yaml")
         cfg_file = cfg_file if fpath is None else fpath
 
         with open(cfg_file) as general_config:
             full_cfg = yaml.safe_load(general_config)
 
-        cfg: dict = full_cfg['mqtt'][hostname]
-        url = cfg['url']
-        port = cfg['port']
-        access_token = cfg.get('accessToken', None)
-        keep_alive = cfg['connection']['keepAlive']
-        min_reconnect_delay = cfg['connection']['minReconnectDelay']
-        timeout = cfg['connection']['timeout']
-        return MQTTClient(hostname=hostname,
-                          url=url,
-                          port=port,
-                          token=access_token,
-                          keep_alive=keep_alive,
-                          min_reconnect_delay=min_reconnect_delay,
-                          timeout=timeout)
+        cfg: dict = full_cfg["mqtt"][hostname]
+        url = cfg["url"]
+        port = cfg["port"]
+        access_token = cfg.get("accessToken", None)
+        keep_alive = cfg["connection"]["keepAlive"]
+        min_reconnect_delay = cfg["connection"]["minReconnectDelay"]
+        timeout = cfg["connection"]["timeout"]
+        return MQTTClient(
+            hostname=hostname,
+            url=url,
+            port=port,
+            token=access_token,
+            keep_alive=keep_alive,
+            min_reconnect_delay=min_reconnect_delay,
+            timeout=timeout,
+        )
