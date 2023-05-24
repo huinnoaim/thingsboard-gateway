@@ -1,9 +1,7 @@
 mqtt:
-  thingsboard:
+  mosquitto:
     url: <put host url>
-    port: 8081
-    accessToken: <put access token>
-    qos: 1
+    port: 1883
     connection:
       keepAlive: 120
       minReconnectDelay: 10
