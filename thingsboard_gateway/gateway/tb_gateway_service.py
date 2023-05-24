@@ -156,7 +156,6 @@ class TBGatewayService:
         log = logging.getLogger('service')
         log.info("Gateway starting...")
         self.available_connectors = {}
-        self.__connector_incoming_messages = {}
         self.__connected_devices = {}
         self.__renamed_devices = {}
         self.__saved_devices = {}
@@ -733,10 +732,6 @@ class TBGatewayService:
                                 self.add_device(data["deviceName"],
                                                 {"connector": self.available_connectors[connector_name]},
                                                 device_type=data["deviceType"])
-                            if not self.__connector_incoming_messages.get(connector_name):
-                                self.__connector_incoming_messages[connector_name] = 0
-                            else:
-                                self.__connector_incoming_messages[connector_name] += 1
                         else:
                             data["deviceName"] = "currentThingsBoardGateway"
                             data['deviceType'] = "gateway"
