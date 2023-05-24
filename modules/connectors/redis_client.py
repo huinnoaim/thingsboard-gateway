@@ -8,7 +8,7 @@ from typing import Union
 import yaml
 from redis import ConnectionError, Redis as RedisBase
 
-from modules.connectors import DEFAULT_CFG_DIRPATH
+from connectors import DEFAULT_CFG_DIRPATH
 
 
 logging.basicConfig(level=logging.INFO)

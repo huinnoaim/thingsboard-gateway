@@ -16,9 +16,9 @@ import dataclasses as dc
 import aiohttp
 import yaml
 
-from modules.connectors import Redis, RedisUtils, MQTTClient
-from datamodel import ECGBulk, ECG, HeartRate, HeartRateTelemetry
-import hr_detector
+from connectors import Redis, RedisUtils, MQTTClient
+from heartrate.datamodel import ECGBulk, ECG, HeartRate, HeartRateTelemetry
+import heartrate.hr_detector as hr_detector
 
 
 logger = logging.getLogger(__file__)

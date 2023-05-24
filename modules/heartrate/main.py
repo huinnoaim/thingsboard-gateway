@@ -11,8 +11,8 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-from modules.heartrate.workers import ECGWatcher, HeartRateCalculator, HeartRateSender, ECGUploader
-from modules.heartrate.datamodel import HeartRate, ECGBulk
+from heartrate.workers import ECGWatcher, HeartRateCalculator, HeartRateSender, ECGUploader
+from heartrate.datamodel import HeartRate, ECGBulk
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)

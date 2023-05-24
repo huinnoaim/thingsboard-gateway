@@ -5,7 +5,7 @@ from enum import Enum
 
 import requests
 
-from modules.connectors import MQTTClient
+from connectors import MQTTClient
 
 
 logger = logging.getLogger(__file__)

@@ -2,8 +2,8 @@ import json
 
 import paho.mqtt.client as mqtt
 
-from modules.connectors import MQTTClient
-from modules.alarm.alarm_manager import AlarmManager
+from connectors import MQTTClient
+from alarm.alarm_manager import AlarmManager
 
 
 client = MQTTClient(

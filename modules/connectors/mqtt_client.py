@@ -9,7 +9,7 @@ import threading
 import yaml
 import paho.mqtt.client as mqtt
 
-from modules.connectors import DEFAULT_CFG_DIRPATH
+from connectors import DEFAULT_CFG_DIRPATH
 
 
 logger = logging.getLogger(__file__)
