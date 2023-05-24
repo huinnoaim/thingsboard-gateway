@@ -326,7 +326,7 @@ class ECGUploader(mp.Process):
             full_cfg = yaml.safe_load(general_config)
 
         cfg = full_cfg['aiServer']
-        host = cfg['host']
+        host = cfg['url']
         access_token = cfg['accessToken']
         upload_period = cfg['uploadPeriodSec']
         return ECGUploader(queue, host, access_token, upload_period)

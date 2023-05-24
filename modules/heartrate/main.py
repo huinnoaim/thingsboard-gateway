@@ -69,7 +69,7 @@ def update_cfgfile(envs: Envs, cfg_fpath: Path):
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='ECG Converters')
     parser.add_argument('--env-fpath', '-e', default='.env', help='envfile file path', type=Path)
-    parser.add_argument('--cfg-fpath', '-c', default='./config/client.yaml', help='config file path', type=Path)
+    parser.add_argument('--cfg-fpath', '-c', default='./config.yaml', help='config file path', type=os.path.abspath)
     return parser.parse_args()
 
 
@@ -77,18 +77,20 @@ def main(args: argparse.Namespace):
     envs = Envs.getenv(args.env_fpath)
     if envs:
         update_cfgfile(envs, args.cfg_fpath)
+    logger.info(envs)
+    logger.info(args.cfg_fpath)
 
     ecg_queue: mp.Queue[ECGBulk] = mp.Queue()
     ai_queue: mp.Queue[ECGBulk] = mp.Queue()
     hr_queue: mp.Queue[HeartRate] = mp.Queue()
 
-    watcher = ECGWatcher(ecg_queue, ai_queue)
+    watcher = ECGWatcher(ecg_queue, ai_queue, args.cfg_fpath)
     watcher.start()
 
     calculator = HeartRateCalculator.from_cfgfile(ecg_queue, hr_queue, args.cfg_fpath)
     calculator.start()
 
-    hr_sender = HeartRateSender(hr_queue)
+    hr_sender = HeartRateSender(hr_queue, args.cfg_fpath)
     hr_sender.start()
 
     ecg_uploader = ECGUploader.from_cfgfile(ai_queue, args.cfg_fpath)
@@ -106,9 +108,6 @@ def main(args: argparse.Namespace):
             ai_queue.close()
             hr_queue.close()
             sys.exit(0)
-    #     # manager.start()
-    #     # server = manager.get_server()
-    #     # server.serve_forever()
 
 
 if __name__ == "__main__":
