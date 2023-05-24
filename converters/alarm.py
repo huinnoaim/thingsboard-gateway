@@ -26,7 +26,6 @@ def handle_hr_message(client, userdata, msg):
 
     __alarm_manager.check_alarm( params_slice[0].split("=")[1], sensor_type, value)
 
-
 def handle_alarm_message(client, userdata, msg):
     payload = json.loads(msg.payload.decode())
     __alarm_manager.upsert_alarm(msg.topic, payload)

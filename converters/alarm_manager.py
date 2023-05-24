@@ -17,8 +17,9 @@ class AlarmSeverity(Enum):
     MINOR = 'MINOR'
 class AlarmManager:
     def __init__(self, client:MQTTClient):
-        self.alarm_rule = None
-        self.exam_serial = None
+        self.alarm_rule = []
+        self.exam_serial = []
+        self.last_alarm_list = []
         self.client = client
         self.get_alarm_rule()
         self.get_exam_with_serial_number()
@@ -73,6 +74,17 @@ class AlarmManager:
         except requests.exceptions.RequestException as e:
             logger.error(f'Error during API call: {e}')
 
+    def get_last_alarm(self, examId) :
+        for alarm in self.last_alarm_list:
+            if alarm.get('exam_id') == examId :
+                return alarm
+        return None
+
+    def remove_last_alarm(self, id) :
+        for alarm in self.last_alarm_list:
+            if alarm.get('id') == id :
+                self.last_alarm_list.remove(alarm)
+
     def upsert_alarm_rule(self, payload):
         api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule_changed'
         headers = {
@@ -120,33 +132,76 @@ class AlarmManager:
             self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR HIGH", AlarmSeverity.MAJOR.value,f"{value} > {hr_alarm_limit['YELLOW']['HIGH']}", value, ward_id, hospital_id)
         elif hr_alarm_limit["YELLOW"]["LOW"] is not None and value < hr_alarm_limit["YELLOW"]["LOW"]:
             self.send_mqtt_alarm(AlarmStatus.UNACK.value, exam_id, "HR LOW", AlarmSeverity.MAJOR.value, f"{value} < {hr_alarm_limit['YELLOW']['LOW']}", value, ward_id, hospital_id)
-        return None
+        else :
+            last_alarm = self.get_last_alarm(exam_id)
+            if last_alarm != None :
+                last_alarm['status'] = AlarmStatus.CLEARED.value
+                self.client.pub(f"alarms/{hospital_id}/{ward_id}/{exam_id}", json.dumps(last_alarm))
+                self.remove_last_alarm(last_alarm.get('id'))
+            return
 
     def send_mqtt_alarm(self, status, examId, type, severity, limits, value, ward_id=1, hospital_id=123) :
-        generated_uuid = uuid.uuid4()
-        uuid_string = str(generated_uuid)
-        payload = {
-            "id" : uuid_string,
-            "status": status,
-            "exam_id": examId,
-            "type": type,
-            "severity": severity,
-            "originator":"n8n",
-            "limits":limits,
-            "sender_id":"n8n_workflow",
-            "pmc_volume":5,
-            "pm_volume":0,
-            "signalType":"HR",
-            "detail": {
-                "hrValue":value,
-                "spO2Value":"--",
-                "tempValue":"--",
-                "nbpData": {
-                    "systolic":"--",
-                    "diastolic":"--",
-                    "meanArterialPressure":"--",
-                    "timestamp":"1970-01-01T00:00:00.000Z"}
+        last_alarm = self.get_last_alarm(examId)
+        if last_alarm == None :
+            generated_uuid = uuid.uuid4()
+            uuid_string = str(generated_uuid)
+            payload = {
+                "id" : uuid_string,
+                "status": status,
+                "exam_id": examId,
+                "type": type,
+                "severity": severity,
+                "originator":"n8n",
+                "limits":limits,
+                "sender_id":"n8n_workflow",
+                "pmc_volume":5,
+                "pm_volume":0,
+                "signalType":"HR",
+                "detail": {
+                    "hrValue":value,
+                    "spO2Value":"--",
+                    "tempValue":"--",
+                    "nbpData": {
+                        "systolic":"--",
+                        "diastolic":"--",
+                        "meanArterialPressure":"--",
+                        "timestamp":"1970-01-01T00:00:00.000Z"}
+                }
             }
-        }
-        self.client.pub(f"alarms/{hospital_id}/{ward_id}/{examId}", json.dumps(payload))
+            self.last_alarm_list.append(payload)
+            self.client.pub(f"alarms/{hospital_id}/{ward_id}/{examId}", json.dumps(payload))
+        elif last_alarm and last_alarm.get('type') == type and last_alarm.get('severity') == severity :
+            return
+        else :
+            last_alarm['status'] = AlarmStatus.CLEARED.value
+            self.client.pub(f"alarms/{hospital_id}/{ward_id}/{examId}", json.dumps(last_alarm))
+            self.remove_last_alarm(last_alarm.get('id'))
+
+            generated_uuid = uuid.uuid4()
+            uuid_string = str(generated_uuid)
+            payload = {
+                "id" : uuid_string,
+                "status": status,
+                "exam_id": examId,
+                "type": type,
+                "severity": severity,
+                "originator":"n8n",
+                "limits":limits,
+                "sender_id":"n8n_workflow",
+                "pmc_volume":5,
+                "pm_volume":0,
+                "signalType":"HR",
+                "detail": {
+                    "hrValue":value,
+                    "spO2Value":"--",
+                    "tempValue":"--",
+                    "nbpData": {
+                        "systolic":"--",
+                        "diastolic":"--",
+                        "meanArterialPressure":"--",
+                        "timestamp":"1970-01-01T00:00:00.000Z"}
+                }
+            }
+            self.last_alarm_list.append(payload)
+            self.client.pub(f"alarms/{hospital_id}/{ward_id}/{examId}", json.dumps(payload))
 
