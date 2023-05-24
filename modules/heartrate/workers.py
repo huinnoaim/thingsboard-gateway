@@ -21,7 +21,7 @@ from heartrate.datamodel import ECGBulk, ECG, HeartRate, HeartRateTelemetry
 import heartrate.hr_detector as hr_detector
 
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class ECGWatcher(mp.Process):

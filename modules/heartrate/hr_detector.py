@@ -3,7 +3,7 @@ import logging
 
 from scipy import signal as sci_sig
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 _WINDOW_SEC = 0.160

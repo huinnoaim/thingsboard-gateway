@@ -11,8 +11,7 @@ from redis import ConnectionError, Redis as RedisBase
 from connectors import DEFAULT_CFG_DIRPATH
 
 
-logger = logging.getLogger(__file__)
-
+logger = logging.getLogger(__name__)
 
 DEFAULT_CFG_PATH = "/config/client.yaml"
 

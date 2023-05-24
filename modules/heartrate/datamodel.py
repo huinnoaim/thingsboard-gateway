@@ -6,7 +6,7 @@ import dataclasses as dc
 import json
 import itertools
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class ECG(NamedTuple):

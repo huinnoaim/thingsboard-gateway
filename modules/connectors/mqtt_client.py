@@ -12,7 +12,8 @@ import paho.mqtt.client as mqtt
 from connectors import DEFAULT_CFG_DIRPATH
 
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
+
 
 RESULT_CODES = {
     1: "incorrect protocol version",
