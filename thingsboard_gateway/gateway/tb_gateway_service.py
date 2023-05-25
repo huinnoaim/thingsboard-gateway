@@ -185,8 +185,10 @@ class TBGatewayService:
         self.__converted_data_queue = SimpleQueue()
         self.__redis_ecg_queue = mp.Queue()
         self.__redis_rawdata_queue = mp.Queue()
+        self.__redis_filtered_queue = mp.Queue()
         self._redis = RedisSender(raw_queue=self.__redis_rawdata_queue,
-                                  ecg_queue=self.__redis_ecg_queue)
+                                  ecg_queue=self.__redis_ecg_queue,
+                                  filtered_queue=self.__redis_filtered_queue)
         self._redis.start()
         self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
                                                    daemon=True,
@@ -695,6 +697,7 @@ class TBGatewayService:
 
             if not device_valid:
                 log.warning('Device %s forbidden', data['deviceName'])
+                self.__redis_filtered_queue.put(('FORBIDDEN_DEVICE', data))
                 return Status.FORBIDDEN_DEVICE
 
             filtered_data = self.__duplicate_detector.filter_data(connector_name, data)
@@ -703,9 +706,11 @@ class TBGatewayService:
                 self.__redis_ecg_queue.put(filtered_data, True, 100)
                 return Status.SUCCESS
             else:
+                self.__redis_filtered_queue.put(('NO_NEW_DATA', data))
                 return Status.NO_NEW_DATA
         except Exception as e:
             log.exception("Cannot put converted data!", e)
+            self.__redis_filtered_queue.put(('FAILURE', data))
             return Status.FAILURE
 
     def __send_to_storage(self):
@@ -721,6 +726,7 @@ class TBGatewayService:
                             if 'attributes' not in data:
                                 data['attributes'] = []
                             if not TBUtility.validate_converted_data(data):
+                                self.__redis_filtered_queue.put(('INVALID_CONNECTOR', data))
                                 log.error("Data from %s connector is invalid.", connector_name)
                                 continue
                             if data.get('deviceType') is None:
@@ -822,6 +828,7 @@ class TBGatewayService:
         save_result = self._event_storage.put(json_data)
         log.info(f'#Queued Events: {self._event_storage.len()}')
         if not save_result:
+            self.__redis_filtered_queue.put(('FAILED_TO_JSON', data))
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],
                       connector_name)
@@ -864,6 +871,7 @@ class TBGatewayService:
                             try:
                                 current_event = loads(event)
                             except Exception as e:
+                                self.__redis_filtered_queue.put(('LOAD_EVENT_FROM_STORAGE', current_event))
                                 log.exception(e)
                                 continue
 
@@ -945,9 +953,10 @@ class TBGatewayService:
     def __send_data(self, devices_data_in_event_pack):
         try:
             for device in devices_data_in_event_pack:
+                self.__redis_filtered_queue.put((f'SEND_DATA:{device}', devices_data_in_event_pack[device]))
                 final_device_name = device if self.__renamed_devices.get(device) is None else self.__renamed_devices[
                     device]
-
+                self.__redis_filtered_queue.put((f'FINAL_DEVICE_NAME:{final_device_name}', devices_data_in_event_pack[device]))
                 if devices_data_in_event_pack[device].get("attributes"):
                     if device == self.name or device == "currentThingsBoardGateway":
                         self._published_events.put(
