@@ -183,8 +183,10 @@ class TBGatewayService:
         self.main_handler.setTarget(self.remote_handler)
         self._default_connectors = DEFAULT_CONNECTORS
         self.__converted_data_queue = SimpleQueue()
-        self.__redis_queue = mp.Queue()
-        self._redis = RedisSender(self.__redis_queue)
+        self.__redis_ecg_queue = mp.Queue()
+        self.__redis_rawdata_queue = mp.Queue()
+        self._redis = RedisSender(raw_queue=self.__redis_rawdata_queue,
+                                  ecg_queue=self.__redis_ecg_queue)
         self._redis.start()
         self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
                                                    daemon=True,
@@ -687,6 +689,7 @@ class TBGatewayService:
         '''
         try:
             device_valid = True
+            self.__redis_rawdata_queue.put(data, True, 100)
             if self.__device_filter:
                 device_valid = self.__device_filter.validate_device(connector_name, data)
 
@@ -697,7 +700,7 @@ class TBGatewayService:
             filtered_data = self.__duplicate_detector.filter_data(connector_name, data)
             if filtered_data:
                 self.__converted_data_queue.put((connector_name, filtered_data), True, 100)
-                self.__redis_queue.put(filtered_data, True, 100)
+                self.__redis_ecg_queue.put(filtered_data, True, 100)
                 return Status.SUCCESS
             else:
                 return Status.NO_NEW_DATA

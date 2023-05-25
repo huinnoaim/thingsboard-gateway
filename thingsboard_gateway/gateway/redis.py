@@ -1,9 +1,9 @@
 from __future__ import annotations
 import sys
 import multiprocessing as mp
+import threading
 import logging
 import time
-import yaml
 import dataclasses as dc
 import json
 from pathlib import Path
@@ -11,13 +11,16 @@ from os import path
 from typing import Any, Union
 from traceback import print_exc
 
-from redis import Redis as RedisBase
+import yaml
+from redis import Redis as RedisBase, ConnectionError
 
-logger = logging.getLogger('redis')
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_CONFIG_FILEPATH = "/config/redis.yaml"
-REDIS_TTL = 90  # 90 sec
+ECG_TTL = 90  # 90 sec
+RAW_TTL = 45
+
 
 @dc.dataclass
 class EcgData:
@@ -28,34 +31,72 @@ class EcgData:
 
     @property
     def redis_key(self) -> str:
-        '''Key for Redis'''
-        return f'ecg:{self.device}:{self.idx}'
+        """Key for Redis"""
+        return f"ecg:{self.device}:{self.idx}"
 
     @property
     def redis_values(self) -> str:
-        '''Values for Redis'''
-        return json.dumps({'ts': self.ts, 'ecg': self.values}).encode('utf-8')
+        """Values for Redis"""
+        return json.dumps({"ts": self.ts, "ecg": self.values}).encode("utf-8")
 
     @staticmethod
-    def from_telemetry(telemetry_data: dict) -> Union[EcgData, None]:
+    def from_parsed_data(parsed_data: dict) -> Union[EcgData, None]:
         try:
-            device_name = str(telemetry_data['deviceName'])
-            field_ts = int(telemetry_data['telemetry'][0]['ts'])
-            field_ecg = json.dumps(telemetry_data['telemetry'][0]['values']['ecgData'])
-            field_ecg_index = int(telemetry_data['telemetry'][0]['values']['ecgDataIndex'])
-            return EcgData(device=device_name, ts=field_ts, idx=field_ecg_index, values=json.loads(field_ecg))
+            device_name = str(parsed_data["deviceName"])
+            field_ts = int(parsed_data["telemetry"][0]["ts"])
+            field_ecg = json.dumps(parsed_data["telemetry"][0]["values"]["ecgData"])
+            field_ecg_index = int(parsed_data["telemetry"][0]["values"]["ecgDataIndex"])
+            return EcgData(
+                device=device_name,
+                ts=field_ts,
+                idx=field_ecg_index,
+                values=json.loads(field_ecg),
+            )
         except:
-            logger.debug(f'{device_name} sent INVALID ECG format: {str(telemetry_data)}')
+            logger.debug(
+                f"Parsing Failed: {device_name} sent INVALID ECG format: {str(parsed_data)}"
+            )
+            return None
+
+
+@dc.dataclass
+class RawData:
+    device: str
+    ts: int
+    data: dict
+
+    @property
+    def redis_key(self) -> str:
+        return f"raw:{self.device}:{self.ts}"
+
+    @property
+    def redis_values(self) -> str:
+        return json.dumps(self.data).encode("utf-8")
+
+    @staticmethod
+    def from_parsed_data(parsed_data: dict) -> Union[RawData, None]:
+        try:
+            device_name = str(parsed_data["deviceName"])
+            return RawData(
+                device=device_name,
+                ts=int(time.time() * 1000),
+                data=parsed_data,
+            )
+        except:
+            logger.debug(
+                f"Parsing Failed: {device_name} sent INVALID RAW format: {str(parsed_data)}"
+            )
             return None
 
 
 class SingletonType(type):
-    '''It restricts a class as Singleton.
+    """It restricts a class as Singleton.
 
     Refer belows:
     1. https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
     2. https://dojang.io/mod/page/view.php?id=2468
-    '''
+    """
+
     def __call__(cls, *args, **kwargs):
         try:
             return cls.__instance
@@ -66,29 +107,36 @@ class SingletonType(type):
 
 class Redis(RedisBase):
     __metaclass__ = SingletonType
-    '''Redis Singletone Base Class.
-    '''
+    """Redis Singletone Base Class.
+    """
 
     @staticmethod
     def from_cfgfile(fpath: Union[Path, None] = None) -> Redis:
         dirname = path.dirname(path.dirname(path.abspath(__file__)))
-        cfg_file = dirname + DEFAULT_CONFIG_FILEPATH.replace('/', path.sep)
+        cfg_file = dirname + DEFAULT_CONFIG_FILEPATH.replace("/", path.sep)
         cfg_file = cfg_file if fpath is None else fpath
 
         with open(cfg_file) as general_config:
             cfg = yaml.safe_load(general_config)
 
-        redis_cfg = cfg['redis']
-        host = redis_cfg['host']
-        port = redis_cfg['port']
-        password = redis_cfg['password']
+        redis_cfg = cfg["redis"]
+        host = redis_cfg["host"]
+        port = redis_cfg["port"]
+        password = redis_cfg["password"]
         return Redis(host=host, port=port, password=password)
 
+
 class RedisSender(mp.Process):
-    def __init__(self, queue: mp.Queue, cfg_fpath: Union[Path, None] = None) -> None:
+    def __init__(
+        self,
+        raw_queue: mp.Queue,
+        ecg_queue: mp.Queue,
+        cfg_fpath: Union[Path, None] = None,
+    ) -> None:
         super().__init__()
-        self.queue = queue
-        self.name = 'Redis Sender'
+        self.raw_queue = raw_queue
+        self.ecg_queue = ecg_queue
+        self.name = "Redis Sender"
         self.cfgpath = cfg_fpath
         self.redis = None
         self.bulksize = 40
@@ -100,25 +148,63 @@ class RedisSender(mp.Process):
             print_exc(e)
             raise RuntimeError("Run Redis is failed")
 
+        ecg_thread = threading.Thread(
+            target=self.ecg_sender, name="ECG Data Sender Thread"
+        )
+        raw_thread = threading.Thread(
+            target=self.raw_sender, name="RAW Data Sender Thread"
+        )
+
+        ecg_thread.start()
+        raw_thread.start()
+
         while True:
             try:
-                if not self.queue.empty():
-                    ecgbulk: list[EcgData] = []
-                    for _ in range(min(self.bulksize, self.queue.qsize())):
-                        converted_data = self.queue.get(True, 100)
-                        ecg_data = EcgData.from_telemetry(converted_data)
-                        if ecg_data:
-                            ecgbulk.append(ecg_data)
-
-                    pipe = self.redis.pipeline()
-                    for ecg in ecgbulk:
-                        pipe.set(ecg.redis_key, ecg.redis_values)
-                        pipe.expire(ecg.redis_key, REDIS_TTL)
-
-                    pipe.execute()
-                    logger.info(f'# {len(ecgbulk)} ECG data is sent to Redis, # RedisQueueSize: {self.queue.qsize()}')
-
-                time.sleep(.2)
-            except KeyboardInterrupt:
+                pass
+            except (KeyboardInterrupt, ConnectionError, ConnectionRefusedError):
                 self.redis.close()
                 self.close()
+
+    def ecg_sender(self):
+        while True:
+            if not self.ecg_queue.empty():
+                ecgs: list[EcgData] = []
+                for _ in range(min(self.bulksize, self.ecg_queue.qsize())):
+                    parsed_data = self.ecg_queue.get(True, 100)
+                    ecg_data = EcgData.from_parsed_data(parsed_data)
+                    if ecg_data:
+                        ecgs.append(ecg_data)
+
+                pipe = self.redis.pipeline()
+                for ecg in ecgs:
+                    pipe.set(ecg.redis_key, ecg.redis_values)
+                    pipe.expire(ecg.redis_key, ECG_TTL)
+
+                pipe.execute()
+                logger.info(
+                    f"# {len(ecgs)} ECG data is sent to Redis, # Redis ECGQueueSize: {self.ecg_queue.qsize()}"
+                )
+
+            time.sleep(0.2)
+
+    def raw_sender(self):
+        while True:
+            if not self.raw_queue.empty():
+                raws: list[RawData] = []
+                for _ in range(min(self.bulksize, self.raw_queue.qsize())):
+                    parsed_data = self.raw_queue.get(True, 100)
+                    raw_data = RawData.from_parsed_data(parsed_data)
+                    if raw_data:
+                        raws.append(raw_data)
+
+                pipe = self.redis.pipeline()
+                for raw in raws:
+                    pipe.set(raw.redis_key, raw.redis_values)
+                    pipe.expire(raw.redis_key, RAW_TTL)
+
+                pipe.execute()
+                logger.info(
+                    f"# {len(raws)} RAW data is sent to Redis, # Redis RawQueueSize: {self.raw_queue.qsize()}"
+                )
+
+            time.sleep(0.2)
