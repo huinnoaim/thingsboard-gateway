@@ -79,3 +79,12 @@ class RedisUtils:
             keys = map(lambda x: x.decode("utf-8"), redis.keys(ptrn))
             sortby_index = lambda x: int(x.split(":")[2])
             return sorted(keys, reverse=True, key=sortby_index)[:latest]
+
+    class RAW:
+        @staticmethod
+        def get_devices(redis: Redis) -> list[str]:
+            ptrn = ptrn = f"raw:*"  # raw:{device}:{ts}
+            keys = redis.keys(ptrn)
+            extract_device = lambda x: x.decode("utf-8").split(":")[1]
+            devices = map(extract_device, keys)
+            return sorted(set(devices))
