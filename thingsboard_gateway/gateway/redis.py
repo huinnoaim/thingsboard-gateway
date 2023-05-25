@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CONFIG_FILEPATH = "/config/redis.yaml"
-FILTERED_TTL = 300
+FILTERED_TTL = 60
 ECG_TTL = 90  # 90 sec
 RAW_TTL = 45
 
