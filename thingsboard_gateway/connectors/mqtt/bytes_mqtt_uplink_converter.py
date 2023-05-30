@@ -43,7 +43,7 @@ BUFFER_TIMEOUT = 80
 # key: name, value: cache
 
 
-def parse_data(expression, data):
+def parse_data(expression: str, data: str):
     parsed = None
     expression_arr = findall(r"\[\S[0-9:]*]", expression)
     converted_data = expression
@@ -80,7 +80,7 @@ def parse_header(header_encoded):
     return parser.parsed
 
 
-def parse_body(body_encoded):
+def parse_body(body_encoded: bytes, precision: int = 20):
     body = []
     # 3 bytes represents 2 ECG value
     for x in range(0, len(body_encoded), 3):
@@ -105,8 +105,8 @@ def parse_body(body_encoded):
 
         v2 = (v2 * 3.05) / 1000
 
-        body.append(v1)
-        body.append(v2)
+        body.append(round(v1, precision))
+        body.append(round(v2, precision))
     return body
 
 
@@ -116,7 +116,7 @@ def parse_ecg(ecg_encoded):
         decoded = base64.b64decode(re.sub("/[ \r\n]+$/", "", ecg_encoded))
         # fill header info
         ecg = parse_header(decoded[:16])
-        body = parse_body(decoded[16:])
+        body = parse_body(decoded[16:], 4)
 
         ecg["ecgdata"] = body
     except Exception as e:
