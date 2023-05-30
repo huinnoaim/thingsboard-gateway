@@ -953,10 +953,9 @@ class TBGatewayService:
     def __send_data(self, devices_data_in_event_pack):
         try:
             for device in devices_data_in_event_pack:
-                self.__redis_filtered_queue.put((f'SEND_DATA:{device}', devices_data_in_event_pack[device]))
+                # self.__redis_filtered_queue.put((f'SEND_DATA:{device}', devices_data_in_event_pack[device]))
                 final_device_name = device if self.__renamed_devices.get(device) is None else self.__renamed_devices[
                     device]
-                self.__redis_filtered_queue.put((f'FINAL_DEVICE_NAME:{final_device_name}', devices_data_in_event_pack[device]))
                 if devices_data_in_event_pack[device].get("attributes"):
                     if device == self.name or device == "currentThingsBoardGateway":
                         self._published_events.put(
@@ -967,9 +966,11 @@ class TBGatewayService:
                                                                                                 device]["attributes"]))
                 if devices_data_in_event_pack[device].get("telemetry"):
                     if device == self.name or device == "currentThingsBoardGateway":
+                        self.__redis_filtered_queue.put((f'SEND_DATA:NoGW:{device}', devices_data_in_event_pack[device]))
                         self._published_events.put(
                             self.tb_client.client.send_telemetry(devices_data_in_event_pack[device]["telemetry"]))
                     else:
+                        self.__redis_filtered_queue.put((f'SEND_DATA:GW:{device}', devices_data_in_event_pack[device]))
                         self._published_events.put(self.tb_client.client.gw_send_telemetry(final_device_name,
                                                                                            devices_data_in_event_pack[
                                                                                                device]["telemetry"]))
