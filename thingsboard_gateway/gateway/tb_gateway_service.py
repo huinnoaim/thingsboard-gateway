@@ -29,6 +29,7 @@ from time import sleep, time
 import simplejson
 from simplejson import JSONDecodeError, dumps, load, loads
 from yaml import safe_load
+from tb_device_mqtt import TBPublishInfo
 
 from thingsboard_gateway.gateway.constant_enums import DeviceActions, Status
 from thingsboard_gateway.gateway.constants import CONNECTED_DEVICES_FILENAME, CONNECTOR_PARAMETER, \
@@ -184,11 +185,7 @@ class TBGatewayService:
         self._default_connectors = DEFAULT_CONNECTORS
         self.__converted_data_queue = SimpleQueue()
         self.__redis_ecg_queue = mp.Queue()
-        self.__redis_rawdata_queue = mp.Queue()
-        self.__redis_filtered_queue = mp.Queue()
-        self._redis = RedisSender(raw_queue=self.__redis_rawdata_queue,
-                                  ecg_queue=self.__redis_ecg_queue,
-                                  filtered_queue=self.__redis_filtered_queue)
+        self._redis = RedisSender(ecg_queue=self.__redis_ecg_queue)
         self._redis.start()
         self.__save_converted_data_thread = Thread(name="Save converted data to Memory event storage Thread",
                                                    daemon=True,
@@ -691,13 +688,11 @@ class TBGatewayService:
         '''
         try:
             device_valid = True
-            self.__redis_rawdata_queue.put(data, True, 100)
             if self.__device_filter:
                 device_valid = self.__device_filter.validate_device(connector_name, data)
 
             if not device_valid:
                 log.warning('Device %s forbidden', data['deviceName'])
-                self.__redis_filtered_queue.put(('FORBIDDEN_DEVICE', data))
                 return Status.FORBIDDEN_DEVICE
 
             filtered_data = self.__duplicate_detector.filter_data(connector_name, data)
@@ -706,11 +701,9 @@ class TBGatewayService:
                 self.__redis_ecg_queue.put(filtered_data, True, 100)
                 return Status.SUCCESS
             else:
-                self.__redis_filtered_queue.put(('NO_NEW_DATA', data))
                 return Status.NO_NEW_DATA
         except Exception as e:
             log.exception("Cannot put converted data!", e)
-            self.__redis_filtered_queue.put(('FAILURE', data))
             return Status.FAILURE
 
     def __send_to_storage(self):
@@ -726,7 +719,6 @@ class TBGatewayService:
                             if 'attributes' not in data:
                                 data['attributes'] = []
                             if not TBUtility.validate_converted_data(data):
-                                self.__redis_filtered_queue.put(('INVALID_CONNECTOR', data))
                                 log.error("Data from %s connector is invalid.", connector_name)
                                 continue
                             if data.get('deviceType') is None:
@@ -828,7 +820,6 @@ class TBGatewayService:
         save_result = self._event_storage.put(json_data)
         log.info(f'#Queued Events: {self._event_storage.len()}')
         if not save_result:
-            self.__redis_filtered_queue.put(('FAILED_TO_JSON', data))
             log.error('Data from the device "%s" cannot be saved, connector name is %s.',
                       data["deviceName"],
                       connector_name)
@@ -871,7 +862,6 @@ class TBGatewayService:
                             try:
                                 current_event = loads(event)
                             except Exception as e:
-                                self.__redis_filtered_queue.put(('LOAD_EVENT_FROM_STORAGE', current_event))
                                 log.exception(e)
                                 continue
 
@@ -918,14 +908,19 @@ class TBGatewayService:
                                     success = False
                                     break
 
-                                events = [self._published_events.get(False, 10) for _ in
-                                          range(min(self.__min_pack_size_to_send, self._published_events.qsize()))]
+                                events = []
+                                for _ in range(min(self.__min_pack_size_to_send, self._published_events.qsize())):
+                                    event: TBPublishInfo = self._published_events.get(True, 10)
+                                    events.append(event)
+
+                                # check the success of the published events
                                 for event in events:
                                     try:
                                         if self.tb_client.is_connected() and (
                                                 self.__remote_configurator is None or not self.__remote_configurator.in_process):
                                             if self.tb_client.client.quality_of_service == 1:
-                                                success = event.get() == event.TB_ERR_SUCCESS
+                                                result_code = event.get()
+                                                success = result_code == event.TB_ERR_SUCCESS
                                             else:
                                                 success = True
                                         else:
@@ -953,7 +948,6 @@ class TBGatewayService:
     def __send_data(self, devices_data_in_event_pack):
         try:
             for device in devices_data_in_event_pack:
-                # self.__redis_filtered_queue.put((f'SEND_DATA:{device}', devices_data_in_event_pack[device]))
                 final_device_name = device if self.__renamed_devices.get(device) is None else self.__renamed_devices[
                     device]
                 if devices_data_in_event_pack[device].get("attributes"):
@@ -966,14 +960,14 @@ class TBGatewayService:
                                                                                                 device]["attributes"]))
                 if devices_data_in_event_pack[device].get("telemetry"):
                     if device == self.name or device == "currentThingsBoardGateway":
-                        self.__redis_filtered_queue.put((f'SEND_DATA:NoGW:{device}', devices_data_in_event_pack[device]))
-                        self._published_events.put(
-                            self.tb_client.client.send_telemetry(devices_data_in_event_pack[device]["telemetry"]))
+                        publish_info: TBPublishInfo = self.tb_client.client.send_telemetry(devices_data_in_event_pack[device]["telemetry"])
+                        self._published_events.put(publish_info)
                     else:
-                        self.__redis_filtered_queue.put((f'SEND_DATA:GW:{device}', devices_data_in_event_pack[device]))
-                        self._published_events.put(self.tb_client.client.gw_send_telemetry(final_device_name,
-                                                                                           devices_data_in_event_pack[
-                                                                                               device]["telemetry"]))
+                        publish_info: TBPublishInfo = self.tb_client.client.gw_send_telemetry(final_device_name,
+                                                                                                devices_data_in_event_pack[device]["telemetry"])
+                        log.debug(f"Device {device}'s Result Condition: {publish_info.get()}")
+                        self._published_events.put(publish_info)
+
                 devices_data_in_event_pack[device] = {"telemetry": [], "attributes": {}}
         except Exception as e:
             log.exception(e)
