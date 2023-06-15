@@ -19,10 +19,11 @@ from pathlib import Path
 import yaml
 
 
-def update_cfg(cfg_fpath: Path, host: str, access_token: str):
+def update_cfg(cfg_fpath: Path, host: str, port: int, access_token: str):
     with open(cfg_fpath, 'r') as f:
         yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
     yaml_data['thingsboard']['host'] = host
+    yaml_data['thingsboard']['port'] = port
     yaml_data['thingsboard']['security']['accessToken'] = access_token
 
     with open(cfg_fpath, 'w') as f:
@@ -38,6 +39,7 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Thingsboard Gateway EntryPoint. It updates cfg file and execute the tb gateway")
     parser.add_argument("--host", help="Thingsboard MQTT Host Address", required=True)
+    parser.add_argument("--port", help="Thingsboard MQTT Host port", required=True)
     parser.add_argument("--access_token", help="Access Token For Accessing The MQTT Host", required=True)
     parser.add_argument(
         "--cfg_fpath",
