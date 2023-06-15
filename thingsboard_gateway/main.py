@@ -31,7 +31,7 @@ def update_cfg(cfg_fpath: Path, host: str, port: int, access_token: str):
 
 
 def main(args: argparse.Namespace):
-    update_cfg(args.cfg_fpath, args.host, args.access_token)
+    update_cfg(args.cfg_fpath, args.host, args.port, args.access_token)
     os.system('python -m thingsboard_gateway.tb_gateway')
 
 
@@ -39,7 +39,7 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Thingsboard Gateway EntryPoint. It updates cfg file and execute the tb gateway")
     parser.add_argument("--host", help="Thingsboard MQTT Host Address", required=True)
-    parser.add_argument("--port", help="Thingsboard MQTT Host port", required=True)
+    parser.add_argument("--port", help="Thingsboard MQTT Host port", required=True, type=int)
     parser.add_argument("--access_token", help="Access Token For Accessing The MQTT Host", required=True)
     parser.add_argument(
         "--cfg_fpath",
