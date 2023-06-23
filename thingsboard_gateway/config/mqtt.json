@@ -1,7 +1,7 @@
 {
   "broker": {
     "name": "Mosquitto Broker",
-    "host": "mosquitto.karina-huinno.tk",
+    "host": "mosquitto",
     "port": 1883,
     "version": 5,
     "maxMessageNumberPerWorker": 2,
