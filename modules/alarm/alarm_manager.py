@@ -29,7 +29,7 @@ class AlarmManager:
         self.get_exam_with_serial_number()
 
     def get_alarm_rule(self):
-        api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule'
+        api_url = 'n8n/webhook/alarm_rule'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -43,7 +43,7 @@ class AlarmManager:
             logger.error(f'Error during API call: {e}')
 
     def get_exam_with_serial_number(self):
-        api_url = 'https://iomt.karina-huinno.tk/webhook/exam_list'
+        api_url = 'n8n/webhook/exam_list'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -66,7 +66,7 @@ class AlarmManager:
         if not hospital_id or not ward_id or not exam_id:
             logger.error('Invalid topic - hospital_id, ward_id, or exam_id is missing')
 
-        api_url = 'https://iomt.karina-huinno.tk/webhook/alarms'
+        api_url = 'n8n/webhook/alarms'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -90,7 +90,7 @@ class AlarmManager:
                 self.last_alarm_list.remove(alarm)
 
     def upsert_alarm_rule(self, payload):
-        api_url = 'https://iomt.karina-huinno.tk/webhook/alarm_rule_changed'
+        api_url = 'n8n/webhook/alarm_rule_changed'
         headers = {
             'Content-Type': 'application/json',
         }
