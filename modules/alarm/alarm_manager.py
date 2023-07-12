@@ -7,9 +7,9 @@ import requests
 
 from connectors import MQTTClient
 
-
 logger = logging.getLogger(__file__)
 
+N8N_SERVICE_URL = 'http://n8n:80/webhook'
 class AlarmStatus(Enum):
     ACK = 'ACTIVE_ACK'
     UNACK = 'ACTIVE_UNACK'
@@ -20,6 +20,7 @@ class AlarmSeverity(Enum):
     MAJOR = 'MAJOR'
     MINOR = 'MINOR'
 class AlarmManager:
+
     def __init__(self, client:MQTTClient):
         self.alarm_rule = []
         self.exam_serial = []
@@ -29,7 +30,7 @@ class AlarmManager:
         self.get_exam_with_serial_number()
 
     def get_alarm_rule(self):
-        api_url = 'n8n/webhook/alarm_rule'
+        api_url = f'{N8N_SERVICE_URL}/alarm_rule'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -43,7 +44,7 @@ class AlarmManager:
             logger.error(f'Error during API call: {e}')
 
     def get_exam_with_serial_number(self):
-        api_url = 'n8n/webhook/exam_list'
+        api_url = f'{N8N_SERVICE_URL}/exam_list'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -66,7 +67,7 @@ class AlarmManager:
         if not hospital_id or not ward_id or not exam_id:
             logger.error('Invalid topic - hospital_id, ward_id, or exam_id is missing')
 
-        api_url = 'n8n/webhook/alarms'
+        api_url = f'{N8N_SERVICE_URL}/alarms'
         headers = {
             'Content-Type': 'application/json',
         }
@@ -90,7 +91,7 @@ class AlarmManager:
                 self.last_alarm_list.remove(alarm)
 
     def upsert_alarm_rule(self, payload):
-        api_url = 'n8n/webhook/alarm_rule_changed'
+        api_url = f'{N8N_SERVICE_URL}/alarm_rule_changed'
         headers = {
             'Content-Type': 'application/json',
         }
