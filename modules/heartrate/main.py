@@ -80,6 +80,10 @@ def setup_logger(fpath: str):
             cfg = full_cfg["log"]
         logging.config.dictConfig(cfg)
         logger.info(f"Logging config is loaded from `{fpath}`")
+
+        child_loggers = logging.Logger.manager.loggerDict
+        for child_logger in child_loggers.values():
+            logger.info(f"{str(child_logger)} is loaded")
     except:
         logger.info("Use Default logging config")
 
