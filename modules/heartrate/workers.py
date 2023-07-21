@@ -289,30 +289,31 @@ class ECGUploader(mp.Process):
             upload_ecgs: dict[str, list[float]] = {}
             for device in self.uptodate_ecgs.keys():
                 device_uptodate_ecg: ECGUploader.ECG = self.uptodate_ecgs[device]
-                if (device_uptodate_ecg.upload_ts + self.upload_period) > int(
-                    time.time()
-                ):
+                next_upload_ts = device_uptodate_ecg.uploaded_ts + self.upload_period
+                if int(time.time()) < next_upload_ts:
                     continue
+
                 upload_ecgs[device] = device_uptodate_ecg.values
-                device_uptodate_ecg.upload_ts = int(time.time())
+                device_uptodate_ecg.uploaded_ts = int(time.time())
+                logger.debug(f"{device} is added AI Server Upload Queue")
 
             if upload_ecgs:
                 asyncio.run(self.send_ai_server(upload_ecgs))
                 logger.info(f"{self.upload_time}")
-            time.sleep(0.5)
+            time.sleep(5)
 
     def maintain_ecgs(self):
+        """It keeps the ECG as the up-to-date values"""
         while True:
             if not self.queue.empty():
                 for _ in range(min(self.itersize, self.queue.qsize())):
-                    ecgbulk = self.queue.get(True, 100)
-                    if ecgbulk.device not in self.uptodate_ecgs:
-                        self.uptodate_ecgs[
-                            ecgbulk.device
-                        ] = ECGUploader.ECG()  # init ECG
-                    # maintain the up-to-date ECGs
+                    ecgbulk: ECGBulk = self.queue.get(True, 100)
+                    if ecgbulk.device not in self.uptodate_ecgs:  # init ECG
+                        self.uptodate_ecgs[ecgbulk.device] = ECGUploader.ECG()
+
+                    # maintain the ECGs as up-to-date values
                     self.uptodate_ecgs[ecgbulk.device].values = ecgbulk.values
-                time.sleep(0.5)
+                time.sleep(1)
 
     async def send_ai_server(self, uptodate_ecgs: dict[str, list[float]]):
         tasks = [
@@ -321,7 +322,7 @@ class ECGUploader(mp.Process):
         ]
         await asyncio.gather(*tasks)
         for task in tasks:
-            logger.debug(task.result())
+            logger.debug(f"AI Analysis Response: {task.result()}")
 
     async def upload_ecg(self, device: str, values: list[float]) -> str:
         body = {
@@ -360,9 +361,9 @@ class ECGUploader(mp.Process):
 
     @dc.dataclass
     class ECG:
-        upload_ts: int = dc.field(default=0)
+        uploaded_ts: int = dc.field(default=0)
         values: list[float] = dc.field(default_factory=list)
 
         def get_upload_dt(self, timezone: str = "Asia/Seoul") -> dt.datetime:
-            datetime = dt.datetime.fromtimestamp(self.upload_ts)
+            datetime = dt.datetime.fromtimestamp(self.uploaded_ts)
             return datetime.astimezone(ZoneInfo(timezone))
