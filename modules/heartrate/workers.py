@@ -298,8 +298,9 @@ class ECGUploader(mp.Process):
                 logger.debug(f"{device} is added AI Server Upload Queue")
 
             if upload_ecgs:
+                logger.debug(f"#{len(upload_ecgs.keys())} Devices:{upload_ecgs.keys()}")
                 asyncio.run(self.send_ai_server(upload_ecgs))
-                logger.info(f"{self.upload_time}")
+                logger.info(f"AI Server Upload Status: {self.upload_time}")
             time.sleep(5)
 
     def maintain_ecgs(self):
