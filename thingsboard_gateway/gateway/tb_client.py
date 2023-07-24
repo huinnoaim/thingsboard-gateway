@@ -59,11 +59,24 @@ class TBClient(threading.Thread):
             self.__password = str(credentials["password"])
         if credentials.get("clientId") is not None:
             self.__client_id = str(credentials["clientId"])
-        self.client = TBGatewayMqttClient(self.__host, self.__port, self.__username, self.__password, self, quality_of_service=self.__default_quality_of_service, client_id=self.__client_id)
+
+        self.client = TBGatewayMqttClient(
+            self.__host,
+            self.__port,
+            self.__username,
+            self.__password,
+            self,
+            quality_of_service=self.__default_quality_of_service,
+            client_id=self.__client_id
+        )
+
         if self.__tls:
-            self.__ca_cert = self.__config_folder_path + credentials.get("caCert") if credentials.get("caCert") is not None else None
-            self.__private_key = self.__config_folder_path + credentials.get("privateKey") if credentials.get("privateKey") is not None else None
-            self.__cert = self.__config_folder_path + credentials.get("cert") if credentials.get("cert") is not None else None
+            self.__ca_cert = self.__config_folder_path + credentials.get("caCert") if credentials.get(
+                "caCert") is not None else None
+            self.__private_key = self.__config_folder_path + credentials.get("privateKey") if credentials.get(
+                "privateKey") is not None else None
+            self.__cert = self.__config_folder_path + credentials.get("cert") if credentials.get(
+                "cert") is not None else None
             self.__check_cert_period = credentials.get('checkCertPeriod', 86400)
             self.__certificate_days_left = credentials.get('certificateDaysLeft', 3)
 
@@ -85,14 +98,7 @@ class TBClient(threading.Thread):
         # Adding callbacks
         self.client._client._on_connect = self._on_connect
         self.client._client._on_disconnect = self._on_disconnect
-        # self.client._client._on_log = self._on_log
         self.start()
-
-    # def _on_log(self, *args):
-    #     if "exception" in args[-1]:
-    #         log.exception(args)
-    #     else:
-    #         log.debug(args)
 
     def _check_certificates(self):
         while not self.__stopped and not self.__paused:
@@ -126,7 +132,7 @@ class TBClient(threading.Thread):
         return self.__is_connected
 
     def _on_connect(self, client, userdata, flags, result_code, *extra_params):
-        log.debug('TB client %s connected to ThingsBoard', str(client))
+        log.info('TB client %s connected to ThingsBoard', str(client))
         if result_code == 0:
             self.__is_connected = True
         # pylint: disable=protected-access
@@ -135,15 +141,23 @@ class TBClient(threading.Thread):
     def _on_disconnect(self, client, userdata, result_code):
         # pylint: disable=protected-access
         if self.client._client != client:
-            log.info("TB client %s has been disconnected. Current client for connection is: %s", str(client), str(self.client._client))
+            log.info(
+                "TB client %s has been disconnected. Current client for connection is: %s",
+                str(client),
+                str(self.client._client)
+            )
             client.disconnect()
             client.loop_stop()
         else:
+            log.info(
+                "TB client %s has been disconnected. Current client for connection is: %s",
+                str(client),
+                result_code
+            )
             self.__is_connected = False
             self.client._on_disconnect(client, userdata, result_code)
 
     def stop(self):
-        # self.disconnect()
         self.client.stop()
         self.__stopped = True
 
@@ -152,9 +166,9 @@ class TBClient(threading.Thread):
         self.unsubscribe('*')
         self.client.disconnect()
 
-    def unsubscribe(self, subsription_id):
-        self.client.gw_unsubscribe(subsription_id)
-        self.client.unsubscribe_from_attribute(subsription_id)
+    def unsubscribe(self, subscription_id):
+        self.client.gw_unsubscribe(subscription_id)
+        self.client.unsubscribe_from_attribute(subscription_id)
 
     def connect(self, min_reconnect_delay=10):
         self.__paused = False
@@ -168,11 +182,13 @@ class TBClient(threading.Thread):
                 if not self.__paused:
                     if self.__stopped:
                         break
-                    log.debug("connecting to ThingsBoard")
+                    log.info("connecting to ThingsBoard")
                     try:
                         self.client.connect(keepalive=keep_alive,
                                             min_reconnect_delay=self.__min_reconnect_delay)
-                    except ConnectionRefusedError:
+                        log.debug('connected')
+                    except ConnectionRefusedError as e:
+                        log.error('ConnectionRefusedError', e)
                         pass
                     except Exception as e:
                         log.exception(e)

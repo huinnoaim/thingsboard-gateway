@@ -1,0 +1,8 @@
+mqtt:
+  mosquitto:
+    url: <put host url>
+    port: 1883
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120

@@ -26,11 +26,15 @@ class TBLoggerHandler(logging.Handler):
         self.setLevel(logging.getLevelName('DEBUG'))
         self.__gateway = gateway
         self.activated = False
-        self.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - [%(filename)s] - %(module)s - %(lineno)d - %(message)s'))
+        log_format = '%(asctime)s - %(levelname)s - [%(filename)s] - %(module)s - %(lineno)d - %(message)s'
+        self.setFormatter(logging.Formatter(log_format))
         self.loggers = ['service',
                         'extension',
                         'converter',
                         'connector',
+                        'alarm',
+                        'hr',
+                        'http',
                         'tb_connection'
                         ]
         for logger in self.loggers:
@@ -57,7 +61,11 @@ class TBLoggerHandler(logging.Handler):
     def handle(self, record):
         if self.activated and not self.__gateway.stopped:
             record = self.formatter.format(record)
-            self.__gateway.send_to_storage(self.__gateway.name, {"deviceName": self.__gateway.name, "telemetry": [{"ts": int(time()*1000), "values":{'LOGS': record}}]})
+            log_record = {
+                "deviceName": self.__gateway.name,
+                "telemetry": [{"ts": int(time() * 1000), "values": {'LOGS': record}}]
+            }
+            self.__gateway.send_to_storage(self.__gateway.name, log_record)
 
     def deactivate(self):
         self.activated = False
@@ -70,21 +78,27 @@ class TBLoggerHandler(logging.Handler):
             'extension',
             'converter',
             'connector',
+            'alarm',
+            'hr',
+            'http',
             'tb_connection'
-            ]
+        ]
         for logger_name in logger_names:
             logger = logging.getLogger(logger_name)
             handler = logging.StreamHandler(stdout)
-            handler.setFormatter(logging.Formatter('[STREAM ONLY] %(asctime)s - %(levelname)s - [%(filename)s] - %(module)s - %(lineno)d - %(message)s'))
+            log_format = '[STREAM ONLY] %(asctime)s - ' \
+                         '%(levelname)s - [%(filename)s] - ' \
+                         '%(module)s - %(lineno)d - %(message)s'
+            handler.setFormatter(logging.Formatter(log_format))
             logger.addHandler(handler)
 
 
 class TimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    def __init__(self, filename, when='h', interval=1, backupCount=0,
+    def __init__(self, filename, when='h', interval=1, backup_count=0,
                  encoding=None, delay=False, utc=False):
         config_path = environ.get('logs')
         if config_path:
             filename = config_path + '/' + filename.split('/')[-1]
 
-        super().__init__(filename, when=when, interval=interval, backupCount=backupCount,
+        super().__init__(filename, when=when, interval=interval, backupCount=backup_count,
                          encoding=encoding, delay=delay, utc=utc)

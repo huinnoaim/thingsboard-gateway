@@ -1,0 +1,17 @@
+version: 1
+disable_existing_loggers: True
+formatters:
+  default:
+    class: 'logging.Formatter'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+    tzname: 'Asia/Seoul'
+    format: '%(asctime)s.%(msecs)03d - %(name)-s - %(levelname)-5s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: default
+    stream: ext://sys.stdout
+root:
+  level: DEBUG
+  handlers: [console]

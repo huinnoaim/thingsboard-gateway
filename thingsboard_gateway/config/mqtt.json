@@ -1,12 +1,11 @@
 {
   "broker": {
-    "name": "Default Local Broker",
-    "host": "mosquitto.karina-huinno.tk",
+    "name": "Mosquitto Broker",
+    "host": "mosquitto",
     "port": 1883,
     "version": 5,
     "maxMessageNumberPerWorker": 2,
-    "maxNumberOfWorkers": 40,
-    "sendDataOnlyOnChange": false
+    "maxNumberOfWorkers": 40
   },
   "mapping": [
     {

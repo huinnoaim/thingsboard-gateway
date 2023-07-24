@@ -1,0 +1,4 @@
+redis:
+  host: <put host>
+  port: 6379
+  password: <put password>

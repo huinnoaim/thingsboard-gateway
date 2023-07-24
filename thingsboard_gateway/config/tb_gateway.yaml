@@ -1,10 +1,10 @@
 thingsboard:
-  host: <Fill host name>
+  host: a3480422f7d584c65aaf2b9fa258fead-500139692.ap-northeast-2.elb.amazonaws.com
   port: 8081
   remoteShell: false
   remoteConfiguration: false
   statistics:
-    enable: true
+    enable: false
     statsSendPeriodInSeconds: 3600
     configuration: statistics/statistics_linux.json
   deviceFiltering:
@@ -20,7 +20,7 @@ thingsboard:
     inactivityTimeoutSeconds: 120
     inactivityCheckPeriodSeconds: 10
   security:
-    accessToken: <Fill access token>
+    accessToken: GPY5cq6i6ZNY1SJap5pR
   qos: 1
 storage:
   type: memory
@@ -36,6 +36,6 @@ grpc:
   minTimeBetweenPingsMs: 10000
   minPingIntervalWithoutDataMs: 5000
 connectors:
-  - name: MQTT Broker Connector
+  - name: Mosquitto Broker
     type: mqtt
     configuration: mqtt.json

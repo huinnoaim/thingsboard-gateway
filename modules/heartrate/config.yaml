@@ -1,0 +1,65 @@
+mqtt:
+  thingsboard:
+    url: <put host url>
+    port: 8081
+    accessToken: <put access token>
+    qos: 1
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+  mosquitto:
+    url: <put host url>
+    port: 1883
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+
+redis:
+  url: <put host url>
+  port: 6379
+  password: <put password>
+
+aiServer:
+  url: <put host url>
+  accessToken: <put access token>
+  uploadPeriodSec: 60
+
+heartRate:
+  calculator:
+    jobsPerProcess: 10
+
+log:
+  version: 1
+  disable_existing_loggers: False
+  formatters:
+    default:
+      class: 'logging.Formatter'
+      datefmt: '%Y-%m-%d %H:%M:%S'
+      tzname: 'Asia/Seoul'
+      format: '%(asctime)s.%(msecs)03d - %(name)-s - %(levelname)-5s - %(message)s'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: DEBUG
+      formatter: default
+      stream: ext://sys.stdout
+  root:
+    level: DEBUG
+    handlers: [console]
+  heartrate.worker:
+    level: DEBUG
+    handlers: [console]
+  heartrate.datamodel:
+    level: DEBUG
+    handlers: [console]
+  heartrate.hr_detector:
+    level: DEBUG
+    handlers: [console]
+  connectors.mqtt_client:
+    level: DEBUG
+    handlers: [console]
+  connectors.redis_client:
+    level: DEBUG
+    handlers: [console]

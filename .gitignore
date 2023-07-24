@@ -18,10 +18,10 @@ thingsboard_gateway/storage/data/
 /thingsboard_gateway.egg-info/
 /docker/python3-thingsboard-gateway.deb
 /data/
-/logs/
 __pycache__
 /thingsboard_gateway/config/
 /venv/
 thingsboard_gateway/*.json
 thingsboard_gateway/config/mqtt.json
 thingsboard_gateway/config/tb_gateway.yaml
+**/.history
