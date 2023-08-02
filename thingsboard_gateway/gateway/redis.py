@@ -107,7 +107,7 @@ class FilteredData:
     @staticmethod
     def from_parsed_data(parsed_data: dict, hint: str) -> Union[RawData, None]:
         if "deviceName" not in parsed_data:
-            hint = hint if hint else 'NULL'
+            hint = hint if hint else "NULL"
             device = int(time.time())
             return FilteredData(device=device, hint=hint, data=parsed_data)
 
@@ -165,15 +165,11 @@ class Redis(RedisBase):
 class RedisSender(mp.Process):
     def __init__(
         self,
-        raw_queue: mp.Queue,
         ecg_queue: mp.Queue,
-        filtered_queue: mp.Queue,
         cfg_fpath: Union[Path, None] = None,
     ) -> None:
         super().__init__()
-        self.raw_queue = raw_queue
         self.ecg_queue = ecg_queue
-        self.filtered_queue: mp.Queue[(str, dict)] = filtered_queue
         self.name = "Redis Sender"
         self.cfgpath = cfg_fpath
         self.redis = None
@@ -189,24 +185,16 @@ class RedisSender(mp.Process):
         ecg_thread = threading.Thread(
             target=self.ecg_sender, name="ECG Data Sender Thread"
         )
-        raw_thread = threading.Thread(
-            target=self.raw_sender, name="RAW Data Sender Thread"
-        )
-        filtered_thread = threading.Thread(
-            target=self.filtered_sender, name="Filtered Data Sender Thread"
-        )
 
         ecg_thread.start()
-        raw_thread.start()
-        filtered_thread.start()
-        logger.info('Redis Sender Start')
+        logger.info("Redis Sender Start")
 
         while True:
             try:
                 pass
             except (KeyboardInterrupt, ConnectionError, ConnectionRefusedError) as e:
                 print_exc()
-                logger.info('Redis Sender Shutdown')
+                logger.info("Redis Sender Shutdown")
                 self.redis.close()
                 self.close()
 
@@ -228,50 +216,6 @@ class RedisSender(mp.Process):
 
                 logger.info(
                     f"# {len(ecgs)} ECG data is sent to Redis, # Redis ECGQueueSize: {self.ecg_queue.qsize()}"
-                )
-
-            time.sleep(0.2)
-
-    def raw_sender(self):
-        while True:
-            if not self.raw_queue.empty():
-                raws: list[RawData] = []
-                for _ in range(min(self.bulksize, self.raw_queue.qsize())):
-                    parsed_data = self.raw_queue.get(True, 100)
-                    raw_data = RawData.from_parsed_data(parsed_data)
-                    if raw_data:
-                        raws.append(raw_data)
-
-                with self.redis.pipeline() as pipe:
-                    for raw in raws:
-                        pipe.set(raw.redis_key, raw.redis_values)
-                        pipe.expire(raw.redis_key, RAW_TTL)
-                    pipe.execute()
-
-                logger.info(
-                    f"# {len(raws)} RAW data is sent to Redis, # Redis RawQueueSize: {self.raw_queue.qsize()}"
-                )
-
-            time.sleep(0.2)
-
-    def filtered_sender(self):
-        while True:
-            if not self.filtered_queue.empty():
-                filtereds: list[FilteredData] = []
-                for _ in range(min(self.bulksize, self.filtered_queue.qsize())):
-                    hint, parsed_data = self.filtered_queue.get(True, 100)
-                    filtered_data = FilteredData.from_parsed_data(parsed_data, hint)
-                    if filtered_data:
-                        filtereds.append(filtered_data)
-
-                with self.redis.pipeline() as pipe:
-                    for filtered in filtereds:
-                        pipe.set(filtered.redis_key, filtered.redis_values)
-                        pipe.expire(filtered.redis_key, FILTERED_TTL)
-                    pipe.execute()
-
-                logger.info(
-                    f"# {len(filtereds)} Filtered data is sent to Redis, # Redis FilteredQueueSize: {self.filtered_queue.qsize()}"
                 )
 
             time.sleep(0.2)
