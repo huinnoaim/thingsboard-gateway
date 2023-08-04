@@ -1,0 +1,9 @@
+PyYAML
+attrs
+psycopg2-binary
+sqlalchemy
+redis
+python-dotenv
+aiohttp
+fastapi
+uvicorn[standard]

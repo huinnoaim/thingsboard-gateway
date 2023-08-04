@@ -1,0 +1,49 @@
+log:
+  connectors.mqtt_client:
+    handlers:
+    - console
+    level: DEBUG
+  connectors.redis_client:
+    handlers:
+    - console
+    level: DEBUG
+  disable_existing_loggers: false
+  formatters:
+    default:
+      class: logging.Formatter
+      datefmt: '%Y-%m-%d %H:%M:%S'
+      format: '%(asctime)s.%(msecs)03d - %(name)-s - %(levelname)-5s - %(message)s'
+      tzname: Asia/Seoul
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: default
+      level: DEBUG
+      stream: ext://sys.stdout
+  heartrate.datamodel:
+    handlers:
+    - console
+    level: DEBUG
+  heartrate.hr_detector:
+    handlers:
+    - console
+    level: DEBUG
+  heartrate.worker:
+    handlers:
+    - console
+    level: DEBUG
+  root:
+    handlers:
+    - console
+    level: DEBUG
+  version: 1
+postgresql:
+  database:
+  password:
+  port:
+  url:
+  username:
+redis:
+  password: ''
+  port: null
+  url: ''
