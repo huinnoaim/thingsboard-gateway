@@ -159,7 +159,6 @@ class HeartRateCalculator(threading.Thread):
     def calculate_hr(ecgbulk: ECGBulk) -> HeartRate:
         hr: float = hr_detector.detect(ecgbulk.values, 250)
         milliseconds = round(time.time() * 1000)
-        hr = 50  # NOTE: For test
         return HeartRate(ecgbulk.device, milliseconds, hr)
 
     @staticmethod
