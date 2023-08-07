@@ -7,15 +7,17 @@ import logging
 import logging.config
 from typing import NamedTuple, Union
 from pathlib import Path
+import datetime as dt
 
 import uvicorn
 import yaml
 from fastapi import FastAPI, Depends
 from dotenv import load_dotenv
 from sqlalchemy import text
+import redis
 
 import database
-from database import Session, Engine, get_session, get_engine
+from database import get_session, get_engine, AsyncEngine, AsyncSession
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -113,20 +115,23 @@ async def read_root():
 
 @app.get("/trend/")
 # async def read_trend(
-#     device_id: str, start_ts: int, range: int, engine: Engine = Depends(get_engine)
+#     device_ids: list[str],
+#     start_ts: dt.datetime,
+#     range: int,
+#     engine: AsyncEngine = Depends(get_engine),
 # ):
-def read_trend(engine: Engine = Depends(get_engine)):
-    inputtime = "2023-07-20T06:30:51.171Z"
+async def read_trend(engine: AsyncEngine = Depends(get_engine)):
+    start_ts = "2023-07-20T06:30:51.171Z"
     device_ids = """('f38856b0-253f-11ee-8044-891158445ad2','dbc7e150-2538-11ee-8044-891158445ad2','42b11460-1fbf-11ee-8044-891158445ad2')"""
     sql = f"""SELECT ts, val->>0 as val_text, 'type'
                 FROM public.vital
                 WHERE 'type' <> 'ecg'
                 AND device_id IN {device_ids}
-                AND ts > '{inputtime}'::timestamptz
+                AND ts > '{start_ts}'::timestamptz
                 AND ts > CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul' - INTERVAL '144000 minutes'
                 ORDER BY type ASC, ts DESC;"""
-    with engine.connect() as conn:
-        records = conn.execute(text(sql))
+    async with engine.connect() as conn:
+        records = await conn.execute(text(sql))
     return [row._asdict() for row in records]
 
 
@@ -139,6 +144,7 @@ def main(args: argparse.Namespace):
     logger.info(args.cfg_fpath)
 
     db_cfg = database.DBConfig(
+        drivername="postgresql+asyncpg",
         username=envs.POSTGRESQL_USERNAME,
         password=envs.POSTGRESQL_PASSWORD,
         host=envs.POSTGRESQL_URL,

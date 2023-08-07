@@ -7,18 +7,23 @@ from typing import Iterable
 from contextlib import contextmanager
 
 from attrs import define, field, astuple, asdict
-from sqlalchemy.engine import Engine, create_engine as _create_engine
+
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+)
 from sqlalchemy.engine.url import URL
-from sqlalchemy.orm import Session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-_engine: Engine | None = None
+_engine: AsyncEngine | None = None
 
 
 @define
 class DBConfig:
+    drivername: str = field(converter=str)
     username: str = field(converter=str)
     password: str = field(converter=str)
     host: str = field(converter=str)
@@ -28,6 +33,7 @@ class DBConfig:
     @staticmethod
     def from_env() -> DBConfig:
         return DBConfig(
+            drivername=os.getenv("DB_DRIVERNAME"),
             username=os.getenv("DB_USERNAME"),
             password=os.getenv("DB_PASSWORD"),
             host=os.getenv("DB_HOST"),
@@ -43,6 +49,7 @@ class DBConfig:
 
 
 def create_engine(
+    drivername: str,
     username: str,
     password: str,
     host: str,
@@ -52,10 +59,9 @@ def create_engine(
     max_overflow: int = 10,
     ssl_cert_folder: Path | None = None,
     **kwargs,
-) -> Engine:
-
+) -> AsyncEngine:
     url = URL.create(
-        drivername="postgresql+psycopg2",
+        drivername=drivername,
         username=username,
         password=password,
         host=host,
@@ -64,7 +70,7 @@ def create_engine(
     )
 
     global _engine
-    _engine = _create_engine(
+    _engine = create_async_engine(
         url,
         pool_size=pool_size,
         max_overflow=max_overflow,
@@ -93,15 +99,15 @@ def on_shutdown():
     logger.info("DB Connection is closed")
 
 
-def get_engine() -> Engine:
+def get_engine() -> AsyncEngine:
     global _engine
     assert _engine is not None
     return _engine
 
 
 @contextmanager
-def get_session(*args, **kwargs) -> Iterable[Session]:
-    sess = Session(bind=get_engine(), *args, **kwargs)
+def get_session(*args, **kwargs) -> Iterable[AsyncSession]:
+    sess = AsyncSession(bind=get_engine(), *args, **kwargs)
     try:
         yield sess
     finally:

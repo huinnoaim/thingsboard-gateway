@@ -1,7 +1,7 @@
 PyYAML
 attrs
-psycopg2-binary
-sqlalchemy
+asyncpg
+sqlalchemy[asyncio]
 redis
 python-dotenv
 aiohttp
