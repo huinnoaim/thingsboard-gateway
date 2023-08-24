@@ -13,7 +13,7 @@ import paho.mqtt.client as mqtt
 
 from connectors import MQTTClient
 from alarm.alarm_manager import AlarmManager
-
+from alarm import database
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)
@@ -22,6 +22,11 @@ logger.setLevel(logging.DEBUG)
 class Envs(NamedTuple):
     MQTT_MOSQUITTO_URL: str
     MQTT_MOSQUITTO_PORT: int
+    POSTGRESQL_URL: str
+    POSTGRESQL_PORT: int
+    POSTGRESQL_USERNAME: str
+    POSTGRESQL_PASSWORD: str
+    POSTGRESQL_DATABASE: str
 
     @staticmethod
     def getenv(fpath: Path | None = None) -> Envs:
@@ -44,6 +49,12 @@ def update_cfgfile(envs: Envs, cfg_fpath: Path):
         yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
         yaml_data["mqtt"]["mosquitto"]["url"] = envs.MQTT_MOSQUITTO_URL
         yaml_data["mqtt"]["mosquitto"]["port"] = envs.MQTT_MOSQUITTO_PORT
+
+        yaml_data["postgresql"]["url"] = envs.POSTGRESQL_URL
+        yaml_data["postgresql"]["port"] = envs.POSTGRESQL_PORT
+        yaml_data["postgresql"]["username"] = envs.POSTGRESQL_USERNAME
+        yaml_data["postgresql"]["password"] = envs.POSTGRESQL_PASSWORD
+        yaml_data["postgresql"]["database"] = envs.POSTGRESQL_DATABASE
 
     with open(cfg_fpath, "w") as f:
         yaml.safe_dump(yaml_data, f)
@@ -71,8 +82,19 @@ def main(args: argparse.Namespace):
     logger.info(envs)
     logger.info(args.cfg_fpath)
 
+    db_cfg = database.DBConfig(
+        drivername="postgresql+asyncpg",
+        username=envs.POSTGRESQL_USERNAME,
+        password=envs.POSTGRESQL_PASSWORD,
+        host=envs.POSTGRESQL_URL,
+        port=envs.POSTGRESQL_PORT,
+        database=envs.POSTGRESQL_DATABASE,
+    )
+    database.on_startup(db_config=db_cfg)
+
     client = MQTTClient.from_cfgfile("mosquitto", args.cfg_fpath)
-    __alarm_manager = AlarmManager(client)
+    db_engine = database.get_engine()
+    __alarm_manager = AlarmManager(client, db_engine)
 
     def handle_hr_message(client, userdata, msg):
         payload = msg.payload.decode()
@@ -124,6 +146,7 @@ def main(args: argparse.Namespace):
 
     except:
         client.disconnect()
+        database.on_shutdown()
 
 
 if __name__ == "__main__":

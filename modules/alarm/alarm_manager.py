@@ -4,8 +4,10 @@ import json
 from enum import Enum
 
 import requests
+import sqlalchemy as sa
 
 from connectors import MQTTClient
+from alarm.database import AsyncEngine
 
 logger = logging.getLogger(__file__)
 
@@ -25,11 +27,12 @@ class AlarmSeverity(Enum):
 
 
 class AlarmManager:
-    def __init__(self, client: MQTTClient):
+    def __init__(self, client: MQTTClient, db_engine: AsyncEngine):
         self.alarm_rule = []
         self.exam_serial = []
         self.last_alarm_list = []
         self.client = client
+        self.db_engine = db_engine
         self.get_alarm_rule()
         self.get_exam_with_serial_number()
 
@@ -139,6 +142,21 @@ class AlarmManager:
             else self.get_exam_rule(None)
         )
         condition = json.loads(rule["condition"])
+
+        with self.db_engine.connect() as conn:
+            result = conn.execute(
+                sa.text(
+                    f"""SELECT e.start_by
+                    FROM examination e
+                    JOIN examination_sensor es ON e.id = es.examination_id
+                    JOIN device d ON es.device_id = d.id
+                    WHERE d.serial_number = '{serial_number}'
+                    AND es.status = 'PAIRED_DEVICE';"""
+                )
+            )
+            connected_device = result.fetchone()
+        if connected_device == "android":
+            return
 
         if sensor_type == "hr":
             self.check_hr(

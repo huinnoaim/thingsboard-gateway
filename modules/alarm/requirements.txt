@@ -3,3 +3,5 @@ paho-mqtt
 python-dotenv
 requests
 redis
+asyncpg
+sqlalchemy[asyncio]

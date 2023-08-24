@@ -6,3 +6,11 @@ mqtt:
       keepAlive: 120
       minReconnectDelay: 10
       timeout: 120
+
+postgresql:
+  database: <put database name>
+  drivername: postgresql+asyncpg
+  password: <put password>
+  port: <put database port>
+  url: <put host url>
+  username: <put username>
