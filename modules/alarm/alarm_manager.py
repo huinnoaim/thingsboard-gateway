@@ -7,7 +7,7 @@ import requests
 import sqlalchemy as sa
 
 from connectors import MQTTClient
-from alarm.database import AsyncEngine
+from alarm.database import Engine
 
 logger = logging.getLogger(__file__)
 
@@ -27,7 +27,7 @@ class AlarmSeverity(Enum):
 
 
 class AlarmManager:
-    def __init__(self, client: MQTTClient, db_engine: AsyncEngine):
+    def __init__(self, client: MQTTClient, db_engine: Engine):
         self.alarm_rule = []
         self.exam_serial = []
         self.last_alarm_list = []

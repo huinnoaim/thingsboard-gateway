@@ -83,7 +83,7 @@ def main(args: argparse.Namespace):
     logger.info(args.cfg_fpath)
 
     db_cfg = database.DBConfig(
-        drivername="postgresql+asyncpg",
+        drivername="postgresql+psycopg2",
         username=envs.POSTGRESQL_USERNAME,
         password=envs.POSTGRESQL_PASSWORD,
         host=envs.POSTGRESQL_URL,
