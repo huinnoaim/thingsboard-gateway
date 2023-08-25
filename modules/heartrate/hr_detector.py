@@ -12,7 +12,7 @@ _MAX_RR = 2.0
 _ARTICLE_SAMPLING_RATE = 200.0
 _LOWER_FILTER_HZ = 5.0
 _UPPER_FILTER_HZ = 15.0
-_HR_CALC_WINDOW_SEC = 60
+_HR_CALC_WINDOW_SEC = 10
 
 
 def detect(signal: list[float], rate: int):
@@ -35,14 +35,7 @@ def detect(signal: list[float], rate: int):
     max_rr_samples = round(_MAX_RR * rate)
     indices = _thresholding(integrated, min_rr_samples, max_rr_samples)
     indices = [x - samples_delay for x in indices]
-    logger.debug(
-        "signal len: "
-        + str(len(signal))
-        + ", rate: "
-        + str(rate)
-        + ", indices:"
-        + str(len(indices))
-    )
+
     peaks_count = len(_correct_peaks(signal, rate, indices))
     # 샘플의 총 시간 -> 이걸 1분으로 만든다.
     duration_s = float(len(signal) / rate)
@@ -50,12 +43,12 @@ def detect(signal: list[float], rate: int):
     return round(hr)
 
 
-def _normalize(values, required_max=1.0):
+def _normalize(values: list[float], required_max: float = 1.0) -> list[float]:
     max_value = max(values)
     return [item / max_value * required_max for item in values]
 
 
-def _low_pass_filter(signal):
+def _low_pass_filter(signal: list[float]) -> list[float]:
     result = []
     for index, value in enumerate(signal):
         if index >= 1:
@@ -70,7 +63,7 @@ def _low_pass_filter(signal):
     return result
 
 
-def _high_pass_filter(signal):
+def _high_pass_filter(signal: list[float]) -> list[float]:
     result = []
     for index, value in enumerate(signal):
         value = -value
@@ -84,7 +77,7 @@ def _high_pass_filter(signal):
     return result
 
 
-def _filter_signal(signal, rate):
+def _filter_signal(signal: list[float], rate: int) -> tuple(list[float], int):
     if len(signal) < 9:
         logger.error("signal length should bigger than 9")
         return
@@ -107,7 +100,7 @@ def _filter_signal(signal, rate):
     return result, delay
 
 
-def _compute_derivative(signal):
+def _compute_derivative(signal: list[float]) -> list[float]:
     buffer = []
     max_value = 0.0
     for index in range(2, len(signal) - 2):
@@ -124,7 +117,7 @@ def _compute_derivative(signal):
     return buffer
 
 
-def _window_integration(signal, window_size):
+def _window_integration(signal: list[float], window_size: int) -> list[float]:
     result = []
     value = 0
     for i, x in enumerate(signal):
@@ -184,7 +177,7 @@ def _thresholding(integrated, min_rr_width, max_rr_width):
     return peaks
 
 
-def _correct_peaks(signal, rate, peaks):
+def _correct_peaks(signal: list[float], rate: int, peaks):
     left_add = int(0.075 * rate)
     right_add = int(0.075 * rate)
     i = 0
