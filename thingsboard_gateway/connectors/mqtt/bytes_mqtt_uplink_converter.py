@@ -283,9 +283,14 @@ class BytesMqttUplinkConverter(MqttUplinkConverter):
             log.error(e, dumps(self.__config), str(data))
             return dict_result
 
-        # Extract the device name from the telemetry data
-        dict_result["deviceName"] = dict_result["telemetry"][0]["values"][
-            "serialNumber"
-        ]
+        try:
+            # Extract the device name from the telemetry data
+            dict_result["deviceName"] = dict_result["telemetry"][0]["values"][
+                "serialNumber"
+            ]
+        except TypeError as e:
+            log.error(e, dumps(self.__config), str(data))
+            return dict_result
+
         log.info(f"Device: {dict_result['deviceName']}, Data is converted")
         return dict_result
