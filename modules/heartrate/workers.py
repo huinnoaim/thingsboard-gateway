@@ -38,7 +38,7 @@ class ECGWatcher(mp.Process):
         self.ai_queue: mp.Queue[ECGBulk] = ai_queue
         self.cfgpath = cfg_fpath
         self.last_ecg_idx = {}
-        self.num_of_required_ecg = 24  # ecg interval is 2.5 sec, 2.5* 24 = 60 sec
+        self.num_of_required_ecg = 4  # ecg interval is 2.5 sec, 2.5* 4 = 10 sec
         self.redis_retry_sec = 5
 
     def run(self):
