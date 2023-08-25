@@ -11,8 +11,7 @@ from alarm.database import Engine
 
 logger = logging.getLogger(__file__)
 
-# N8N_SERVICE_URL = "http://n8n:80/webhook"
-N8N_SERVICE_URL = "http://52.78.183.119:31147/webhook"
+N8N_SERVICE_URL = "http://n8n:80/webhook"
 
 
 class AlarmStatus(Enum):
