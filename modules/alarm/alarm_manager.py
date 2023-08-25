@@ -11,7 +11,8 @@ from alarm.database import Engine
 
 logger = logging.getLogger(__file__)
 
-N8N_SERVICE_URL = "http://n8n:80/webhook"
+# N8N_SERVICE_URL = "http://n8n:80/webhook"
+N8N_SERVICE_URL = "http://52.78.183.119:31147/webhook"
 
 
 class AlarmStatus(Enum):
@@ -154,7 +155,8 @@ class AlarmManager:
                     AND es.status = 'PAIRED_DEVICE';"""
                 )
             )
-            connected_device = result.fetchone()
+            connected_device = result.fetchone()[0]
+        logger.info(f"Device Type: {connected_device}")
         if connected_device == "android":
             return
 
