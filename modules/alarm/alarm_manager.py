@@ -154,8 +154,12 @@ class AlarmManager:
                     AND es.status = 'PAIRED_DEVICE';"""
                 )
             )
-            connected_device = result.fetchone()[0]
+        result = result.fetchone()
+        connected_device = result[0] if result else None
         logger.info(f"Device Type: {connected_device}")
+
+        if connected_device is None:
+            return
         if connected_device == "android":
             return
 
