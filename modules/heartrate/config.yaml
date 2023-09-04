@@ -25,10 +25,14 @@ aiServer:
   url: <put host url>
   accessToken: <put access token>
   uploadPeriodSec: 60
+  numOfUploadedPackets: 24
 
 heartRate:
   calculator:
     jobsPerProcess: 10
+    packetIntervalTime: 2.56
+    windowSize: 4
+
 
 log:
   version: 1

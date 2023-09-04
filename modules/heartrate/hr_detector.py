@@ -77,7 +77,7 @@ def _high_pass_filter(signal: list[float]) -> list[float]:
     return result
 
 
-def _filter_signal(signal: list[float], rate: int) -> tuple(list[float], int):
+def _filter_signal(signal: list[float], rate: int) -> tuple[list[float], int]:
     if len(signal) < 9:
         logger.error("signal length should bigger than 9")
         return

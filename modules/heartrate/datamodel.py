@@ -25,6 +25,10 @@ class ECGBulk:
     def device(self) -> str:
         return self.ecgs[0].device
 
+    @property
+    def ts_range(self) -> tuple[int, int]:
+        return (self.ecgs[0].ts, self.ecgs[-1].ts)
+
     @cached_property
     def values(self) -> list[float]:
         values = [ecg.values for ecg in self.ecgs]
@@ -38,7 +42,7 @@ class ECGBulk:
 class HeartRate(NamedTuple):
     device: str
     ts: int
-    value: float
+    value: int
 
 
 @dc.dataclass

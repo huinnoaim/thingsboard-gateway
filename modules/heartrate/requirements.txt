@@ -4,3 +4,4 @@ paho-mqtt
 scipy
 python-dotenv
 aiohttp
+neurokit2

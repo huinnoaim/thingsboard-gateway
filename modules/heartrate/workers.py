@@ -15,11 +15,14 @@ import dataclasses as dc
 
 import aiohttp
 import yaml
+import numpy as np
 
 from connectors import Redis, RedisUtils, MQTTClient
 from heartrate.datamodel import ECGBulk, ECG, HeartRate, HeartRateTelemetry
-import heartrate.hr_detector as hr_detector
+import heartrate.neurokit as nk
 
+
+ONE_MINUTE_SEC = 60
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,9 @@ class ECGWatcher(mp.Process):
         self.ai_queue: mp.Queue[ECGBulk] = ai_queue
         self.cfgpath = cfg_fpath
         self.last_ecg_idx = {}
-        self.num_of_required_ecg = 4  # ecg interval is 2.5 sec, 2.5* 4 = 10 sec
+        self.num_of_required_ecg_packets = (
+            24  # ecg interval is 2.5 sec, 2.5* 4 = 10 sec
+        )
         self.redis_retry_sec = 5
 
     def run(self):
@@ -67,7 +72,7 @@ class ECGWatcher(mp.Process):
                 devices = RedisUtils.ECG.get_devices(self.redis)
                 for device in devices:
                     latests = RedisUtils.ECG.get_lastest_index(
-                        self.redis, device, self.num_of_required_ecg
+                        self.redis, device, self.num_of_required_ecg_packets
                     )
                     if not latests:  # No data
                         continue
@@ -83,7 +88,7 @@ class ECGWatcher(mp.Process):
 
                 # load ECGs for calcuation a heart rate
                 for device, latests in updated_ecgs.items():
-                    if len(latests) != self.num_of_required_ecg:
+                    if len(latests) != self.num_of_required_ecg_packets:
                         continue  # skip until the device has enough ECGs to calculate a heart rate
 
                     # sort a Redis key by acending order to follow the ECG data order
@@ -116,17 +121,39 @@ class ECGWatcher(mp.Process):
 
             time.sleep(0.2)
 
+    @staticmethod
+    def from_cfgfile(
+        ecg_queue: mp.Queue, ai_queue: mp.Queue, cfg_fpath: Path
+    ) -> ECGWatcher:
+        with open(cfg_fpath) as general_config:
+            full_cfg = yaml.safe_load(general_config)
+
+        cfg = full_cfg["heartRate"]["calculator"]
+        num_jobs = cfg["jobsPerProcess"]
+        packet_interval_time = cfg["packetIntervalTime"]
+        window_size = cfg["windowSize"]
+        return ECGWatcher(
+            ecg_queue,
+            ai_queue,
+        )
+
 
 class HeartRateCalculator(threading.Thread):
     """It calculates Heart Rates by using a multi-processing and put it to the outgoing queue."""
 
     def __init__(
-        self, incoming_queue: mp.Queue, outgoing_queue: mp.Queue, n_jobs: int = 10
+        self,
+        incoming_queue: mp.Queue,
+        outgoing_queue: mp.Queue,
+        packet_interval_time: float,
+        window_size: int,
+        n_jobs: int = 10,
     ):
         super().__init__()
         self.setName("Heart Rate Calculator")
         self.ecg_queue: mp.Queue[ECGBulk] = incoming_queue
         self.hr_queue: mp.Queue[HeartRate] = outgoing_queue
+        self.total_packet_time = packet_interval_time * window_size
         self.num_jobs = n_jobs
         self.itersize = 40
 
@@ -145,19 +172,40 @@ class HeartRateCalculator(threading.Thread):
             logger.info(f"#{num_of_processes} Processes calcuate #{len(ecgbulks)} HRs")
 
             # calculates Heart Rates and transfer it
+            hr_inputs = zip(ecgbulks, [self.total_packet_time] * len(ecgbulks))
             with mp.Pool(processes=num_of_processes) as pool:
-                heart_rates = pool.map(HeartRateCalculator.calculate_hr, ecgbulks)
-            for heart_rate in heart_rates:
+                heart_rates = pool.starmap(HeartRateCalculator.calculate_hr, hr_inputs)
+
+            for heart_rate in filter(lambda x: x is not None, heart_rates):
                 self.hr_queue.put(heart_rate)
                 logger.debug(f"{heart_rate}")
             logger.info(
                 f"HRs are transfered to HR Sender, HR Queue Size: {self.hr_queue.qsize()}"
             )
-            time.sleep(0.2)
+            time.sleep(1)
 
-    @staticmethod
-    def calculate_hr(ecgbulk: ECGBulk) -> HeartRate:
-        hr: float = hr_detector.detect(ecgbulk.values, 250)
+    def calculate_hr(ecgbulk: ECGBulk, total_packet_time: float) -> HeartRate | None:
+        # hr: float = hr_detector.detect(ecgbulk.values, 250)
+        try:
+            rpeaks_idxes: np.ndarray[int] = nk.get_rpeaks(
+                ecgbulk.values, 250
+            )  # for 10 sec
+        except IndexError as e:
+            logger.debug(f"{ecgbulk.device} occurs index error")
+            return None
+
+        if rpeaks_idxes.size == 0:
+            logger.debug(f"{ecgbulk.device} shows empty rpeaks: {rpeaks_idxes}")
+            return None
+
+        if np.diff(rpeaks_idxes).size == 0:
+            logger.debug(f"{ecgbulk.device} shows empty rpeaks diffs: {rpeaks_idxes}")
+            return None
+
+        mean_rr_inerval = np.mean(np.diff(rpeaks_idxes))
+        time_resolution = total_packet_time / len(ecgbulk.values)
+        hr = ONE_MINUTE_SEC / (mean_rr_inerval * time_resolution) / 6
+        hr = int(hr)
         milliseconds = round(time.time() * 1000)
         return HeartRate(ecgbulk.device, milliseconds, hr)
 
@@ -170,7 +218,11 @@ class HeartRateCalculator(threading.Thread):
 
         cfg = full_cfg["heartRate"]["calculator"]
         num_jobs = cfg["jobsPerProcess"]
-        return HeartRateCalculator(ecg_queue, hr_queue, num_jobs)
+        packet_interval_time = cfg["packetIntervalTime"]
+        window_size = cfg["windowSize"]
+        return HeartRateCalculator(
+            ecg_queue, hr_queue, packet_interval_time, window_size, num_jobs
+        )
 
 
 class HeartRateSender(mp.Process):
@@ -215,10 +267,12 @@ class HeartRateSender(mp.Process):
     def handle_thingsboard(self, hr_telemetry: HeartRateTelemetry):
         msg = hr_telemetry.export_thingsboard_message()
         if msg is None:
+            logger.debug(f"MSG for Thingsboard is Null")
             return
 
         # if disconnected to Thingbosard, queuing the HR message
         self.tb_client.pub(topic=hr_telemetry.THINGSBOARD_TOPIC, message=msg)
+        logger.debug(f"MSG to Thingsboard: {hr_telemetry.THINGSBOARD_TOPIC}/{msg}")
         if not self.tb_client.is_connected:
             self.tb_msg_queue.append(msg)
             if len(self.tb_msg_queue) % 1000 == 0:
@@ -285,16 +339,18 @@ class ECGUploader(mp.Process):
         ecg_maintainer.start()
 
         while True:
-            upload_ecgs: dict[str, list[float]] = {}
+            upload_ecgs: dict[str, ECGUploader.ECG] = {}
             for device in self.uptodate_ecgs.keys():
                 device_uptodate_ecg: ECGUploader.ECG = self.uptodate_ecgs[device]
                 next_upload_ts = device_uptodate_ecg.uploaded_ts + self.upload_period
                 if int(time.time()) < next_upload_ts:
                     continue
 
-                upload_ecgs[device] = device_uptodate_ecg.values
+                upload_ecgs[device] = device_uptodate_ecg
                 device_uptodate_ecg.uploaded_ts = int(time.time())
-                logger.debug(f"{device} is added AI Server Upload Queue")
+                logger.debug(
+                    f"{device}{device_uptodate_ecg.ts_range} is added AI Server Upload Queue"
+                )
 
             if upload_ecgs:
                 logger.debug(f"#{len(upload_ecgs.keys())} Devices:{upload_ecgs.keys()}")
@@ -313,27 +369,37 @@ class ECGUploader(mp.Process):
 
                     # maintain the ECGs as up-to-date values
                     self.uptodate_ecgs[ecgbulk.device].values = ecgbulk.values
+                    self.uptodate_ecgs[ecgbulk.device].ts_range = ecgbulk.ts_range
                 time.sleep(1)
 
-    async def send_ai_server(self, uptodate_ecgs: dict[str, list[float]]):
-        tasks = [
-            asyncio.create_task(self.upload_ecg(device, values))
-            for device, values in uptodate_ecgs.items()
-        ]
+    async def send_ai_server(self, uptodate_ecgs: dict[str, ECGUploader.ECG]):
+        tasks = []
+        for device, ecg in uptodate_ecgs.items():
+            task = asyncio.create_task(
+                self.upload_ecg(device, ecg.values, ecg.start_ts, ecg.end_ts)
+            )
+            tasks.append(task)
+
         await asyncio.gather(*tasks)
         for task in tasks:
             logger.debug(f"AI Analysis Response: {task.result()}")
 
-    async def upload_ecg(self, device: str, values: list[float]) -> str:
+    async def upload_ecg(
+        self, device: str, values: list[float], start_ts: int, end_ts: int
+    ) -> str:
         body = {
             "serialNumber": device,
-            "requestTimestamp": int(time.time()),
+            "requestTimestamp": end_ts,
             "requestSeconds": 60,
+            "startTimestamp": start_ts,
+            "endTimestamp": end_ts,
             "ecgData": values,
         }
         payload = json.dumps(body)
         headers = {"Content-Type": "application/json", "iomt-jwt": self.access_token}
-        logger.info(f"Device {device}'s ECGs will be sent to AI Server")
+        logger.info(
+            f"Device {device}'s #{len(values)} ECGs at {int(time.time())} will be sent to AI Server"
+        )
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 self.host, headers=headers, data=payload
@@ -362,7 +428,16 @@ class ECGUploader(mp.Process):
     @dc.dataclass
     class ECG:
         uploaded_ts: int = dc.field(default=0)
+        ts_range: tuple[int] = dc.field(default=(0, 0))
         values: list[float] = dc.field(default_factory=list)
+
+        @property
+        def start_ts(self) -> int:
+            return int(self.ts_range[0] / 1000)
+
+        @property
+        def end_ts(self) -> int:
+            return int(self.ts_range[-1] / 1000)
 
         def get_upload_dt(self, timezone: str = "Asia/Seoul") -> dt.datetime:
             datetime = dt.datetime.fromtimestamp(self.uploaded_ts)
