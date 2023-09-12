@@ -27,11 +27,13 @@ ONE_MINUTE_SEC = 60
 logger = logging.getLogger(__name__)
 
 
-class ECGWatcher(mp.Process):
+class ECGPacketWatcher(mp.Process):
     def __init__(
         self,
+        num_of_watching_packets: int,
         ecg_queue: mp.Queue,
         ai_queue: mp.Queue,
+        queued_packet_cfg: ECGPacketWatcher.QueuedPacketConfig,
         cfg_fpath: Union[Path, None] = None,
     ):
         super().__init__()
@@ -41,9 +43,9 @@ class ECGWatcher(mp.Process):
         self.ai_queue: mp.Queue[ECGBulk] = ai_queue
         self.cfgpath = cfg_fpath
         self.last_ecg_idx = {}
-        self.num_of_required_ecg_packets = (
-            24  # ecg interval is 2.5 sec, 2.5* 4 = 10 sec
-        )
+        self.num_of_watching_packets: int = num_of_watching_packets
+        self.num_of_packets_for_ai: int = queued_packet_cfg.num_of_packets_for_ai
+        self.num_of_packets_for_hr: int = queued_packet_cfg.num_of_packets_for_hr
         self.redis_retry_sec = 5
 
     def run(self):
@@ -72,7 +74,7 @@ class ECGWatcher(mp.Process):
                 devices = RedisUtils.ECG.get_devices(self.redis)
                 for device in devices:
                     latests = RedisUtils.ECG.get_lastest_index(
-                        self.redis, device, self.num_of_required_ecg_packets
+                        self.redis, device, self.num_of_watching_packets
                     )
                     if not latests:  # No data
                         continue
@@ -88,7 +90,7 @@ class ECGWatcher(mp.Process):
 
                 # load ECGs for calcuation a heart rate
                 for device, latests in updated_ecgs.items():
-                    if len(latests) != self.num_of_required_ecg_packets:
+                    if len(latests) != self.num_of_watching_packets:
                         continue  # skip until the device has enough ECGs to calculate a heart rate
 
                     # sort a Redis key by acending order to follow the ECG data order
@@ -110,8 +112,8 @@ class ECGWatcher(mp.Process):
                         continue
 
                     # transfer ECG data
-                    self.ecg_queue.put(ECGBulk(ecgs))
-                    self.ai_queue.put(ECGBulk(ecgs))
+                    self.ecg_queue.put(ECGBulk(ecgs[-self.num_of_packets_for_hr :]))
+                    self.ai_queue.put(ECGBulk(ecgs[-self.num_of_packets_for_ai :]))
                     logger.info(
                         f"Device {device} ECG data is transfered to HR Calculator, ECG Queue Size: {self.ecg_queue.qsize()} / AI Queue Size: {self.ai_queue.qsize()}"
                     )
@@ -124,18 +126,29 @@ class ECGWatcher(mp.Process):
     @staticmethod
     def from_cfgfile(
         ecg_queue: mp.Queue, ai_queue: mp.Queue, cfg_fpath: Path
-    ) -> ECGWatcher:
+    ) -> ECGPacketWatcher:
         with open(cfg_fpath) as general_config:
             full_cfg = yaml.safe_load(general_config)
 
-        cfg = full_cfg["heartRate"]["calculator"]
-        num_jobs = cfg["jobsPerProcess"]
-        packet_interval_time = cfg["packetIntervalTime"]
-        window_size = cfg["windowSize"]
-        return ECGWatcher(
+        cfg = full_cfg["ecgPacketWatcher"]
+        num_of_watching_packets = cfg["numOfWatchingPackets"]
+        num_of_packets_for_ai = cfg["numOfPacketsForAiServer"]
+        num_of_packets_for_hr = cfg["numOfPacketsForHeartRate"]
+
+        return ECGPacketWatcher(
+            num_of_watching_packets,
             ecg_queue,
             ai_queue,
+            ECGPacketWatcher.QueuedPacketConfig(
+                num_of_packets_for_ai=num_of_packets_for_ai,
+                num_of_packets_for_hr=num_of_packets_for_hr,
+            ),
+            cfg_fpath,
         )
+
+    class QueuedPacketConfig(NamedTuple):
+        num_of_packets_for_ai: int
+        num_of_packets_for_hr: int
 
 
 class HeartRateCalculator(threading.Thread):
@@ -204,8 +217,8 @@ class HeartRateCalculator(threading.Thread):
 
         mean_rr_inerval = np.mean(np.diff(rpeaks_idxes))
         time_resolution = total_packet_time / len(ecgbulk.values)
-        hr = ONE_MINUTE_SEC / (mean_rr_inerval * time_resolution) / 6
-        hr = int(hr)
+        hr = ONE_MINUTE_SEC / (mean_rr_inerval * time_resolution)
+        hr = round(hr)
         milliseconds = round(time.time() * 1000)
         return HeartRate(ecgbulk.device, milliseconds, hr)
 

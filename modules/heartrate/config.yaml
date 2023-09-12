@@ -21,6 +21,11 @@ redis:
   port: 6379
   password: <put password>
 
+ecgPacketWatcher:
+  numOfWatchingPackets: 24
+  numOfPacketsForAiServer: 24
+  numOfPacketsForHeartRate: 4
+
 aiServer:
   url: <put host url>
   accessToken: <put access token>
@@ -32,6 +37,7 @@ heartRate:
     jobsPerProcess: 10
     packetIntervalTime: 2.56
     windowSize: 4
+    sampingRate: 250
 
 
 log:

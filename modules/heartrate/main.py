@@ -13,7 +13,7 @@ import yaml
 from dotenv import load_dotenv
 
 from heartrate.workers import (
-    ECGWatcher,
+    ECGPacketWatcher,
     HeartRateCalculator,
     HeartRateSender,
     ECGUploader,
@@ -121,7 +121,7 @@ def main(args: argparse.Namespace):
     ai_queue: mp.Queue[ECGBulk] = mp.Queue()
     hr_queue: mp.Queue[HeartRate] = mp.Queue()
 
-    watcher = ECGWatcher(ecg_queue, ai_queue, args.cfg_fpath)
+    watcher = ECGPacketWatcher.from_cfgfile(ecg_queue, ai_queue, args.cfg_fpath)
     watcher.start()
 
     calculator = HeartRateCalculator.from_cfgfile(ecg_queue, hr_queue, args.cfg_fpath)
