@@ -133,9 +133,9 @@ class AlarmManager:
         return None
 
     def get_default_alarm_rule(self):
-        for exam_info in self.exam_serial:
-            if exam_info.get("exam_ids") == '*':
-                return exam_info
+        for rule in self.alarm_rule:
+            if rule.get("exam_ids") == '*':
+                return rule
 
     def check_alarm(self, serial_number, sensor_type, value):
         exam_info = self.get_exam_info(serial_number)
@@ -147,7 +147,8 @@ class AlarmManager:
             else self.get_default_alarm_rule()
         )
         condition = json.loads(rule["condition"])
-
+        logger.info(self.alarm_rule)
+        logger.info(serial_number, rule)
         with self.db_engine.connect() as conn:
             result = conn.execute(
                 sa.text(
