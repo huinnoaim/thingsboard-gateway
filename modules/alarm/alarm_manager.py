@@ -132,6 +132,11 @@ class AlarmManager:
                 return exam_info
         return None
 
+    def get_default_alarm_rule(self):
+        for exam_info in self.exam_serial:
+            if exam_info.get("exam_ids") == '*':
+                return exam_info
+
     def check_alarm(self, serial_number, sensor_type, value):
         exam_info = self.get_exam_info(serial_number)
         if exam_info == None:
@@ -139,7 +144,7 @@ class AlarmManager:
         rule = (
             self.get_exam_rule(serial_number)
             if self.get_exam_rule(serial_number) is not None
-            else self.get_exam_rule(None)
+            else self.get_default_alarm_rule()
         )
         condition = json.loads(rule["condition"])
 
