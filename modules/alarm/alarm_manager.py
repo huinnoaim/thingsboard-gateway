@@ -124,31 +124,40 @@ class AlarmManager:
         for rule in self.alarm_rule:
             if rule.get("serial_number") == serial_number:
                 return rule
+        logger.info(f"exam rule: {serial_number} No Exam Rule")
         return None
 
     def get_exam_info(self, serial_number):
         for exam_info in self.exam_serial:
             if exam_info.get("serial_number") == serial_number:
                 return exam_info
+        logger.info(f"exam info: {serial_number} No Exam Info")
         return None
 
     def get_default_alarm_rule(self):
         for rule in self.alarm_rule:
-            if rule.get("exam_ids") == '*':
+            if rule.get("exam_ids") == "*":
                 return rule
+        logger.info(f"No Default Rule Returned")
 
     def check_alarm(self, serial_number, sensor_type, value):
         exam_info = self.get_exam_info(serial_number)
         if exam_info == None:
             return
-        rule = (
-            self.get_exam_rule(serial_number)
-            if self.get_exam_rule(serial_number) is not None
-            else self.get_default_alarm_rule()
-        )
+
+        rule = self.get_default_alarm_rule()
+        if self.get_exam_rule(serial_number) is not None:
+            rule = self.get_exam_rule(serial_number)
+        logger.info(f"{serial_number}'s Rule: {rule['name']}")
+        logger.info(rule)
+        # rule = (
+        #     self.get_exam_rule(serial_number)
+        #     if self.get_exam_rule(serial_number) is not None
+        #     else self.get_default_alarm_rule()
+        # )
         condition = json.loads(rule["condition"])
-        logger.info(self.alarm_rule)
-        logger.info(serial_number, rule)
+        # logger.info(self.alarm_rule)
+        # logger.info(serial_number, rule)
         with self.db_engine.connect() as conn:
             result = conn.execute(
                 sa.text(
