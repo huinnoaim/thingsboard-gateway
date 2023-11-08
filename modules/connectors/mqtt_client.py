@@ -71,9 +71,15 @@ class MQTTClient(threading.Thread):
     def connect(self):
         if self.token:
             self.client.username_pw_set(self.token, "")
-        self.client.connect(host=self.url, port=self.port, keepalive=self.keep_alive)
-        self.client.reconnect_delay_set(self.min_reconnect_delay, self.timeout)
-        self.client.loop_start()
+
+        try:
+            self.client.connect(
+                host=self.url, port=self.port, keepalive=self.keep_alive
+            )
+            self.client.reconnect_delay_set(self.min_reconnect_delay, self.timeout)
+            self.client.loop_start()
+        except ValueError as e:
+            raise ValueError(e)
 
     def pub(self, topic: str, message: str, qos=1):
         self.client.publish(topic, message, qos)
@@ -83,21 +89,18 @@ class MQTTClient(threading.Thread):
 
     def run(self):
         logger.info(f"Start {self.hostname} MQTT Connector")
-        try:
-            while not self.client.is_connected():
-                logger.info(f"connecting to {self.hostname}: {self.url}:{self.port}")
-                try:
-                    self.connect()
-                    logger.info(f"connected to {self.hostname}")
-                except ConnectionRefusedError as e:
-                    logger.error(f"{self.hostname}, ConnectionRefusedError", e)
-                    pass
-                except Exception as e:
-                    logger.exception(e)
-                time.sleep(1)
-        except Exception as e:
-            logger.exception(e)
-            time.sleep(10)
+        while not self.client.is_connected():
+            logger.info(f"connecting to {self.hostname}: {self.url}:{self.port}")
+            try:
+                self.connect()
+                logger.info(f"connected to {self.hostname}")
+            except ConnectionRefusedError as e:
+                logger.error(f"{self.hostname}, MQTT Broker ConnectionRefusedError", e)
+                pass
+            except ValueError as e:
+                logger.error(f"{self.hostname}, Invalid MQTT Broker Configuration", e)
+                break
+            time.sleep(1)
 
     @property
     def is_connected(self) -> bool:

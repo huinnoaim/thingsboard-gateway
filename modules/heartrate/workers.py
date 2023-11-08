@@ -256,6 +256,15 @@ class HeartRateSender(mp.Process):
         self.mq_client = MQTTClient.from_cfgfile("mosquitto", self.cfg_path)
         self.mq_client.start()
 
+        # For Alarm debugging
+        try:
+            self.mq_dev_client = MQTTClient.from_cfgfile("mosquitto-dev", self.cfg_path)
+            self.mq_dev_client.start()
+        except ValueError as e:
+            self.mq_client.join()
+            self.mq_dev_client = None
+            logger.info("No DEV MQTT Broker")
+
         while True:
             try:
                 # collect a heart rate
@@ -309,6 +318,9 @@ class HeartRateSender(mp.Process):
             return
         for msg in msgs:
             self.mq_client.pub(topic=hr_telemetry.MOSQUITTO_TOPIC, message=msg)
+            # for alarm debugging
+            if self.mq_dev_client:
+                self.mq_dev_client.pub(topic=hr_telemetry.MOSQUITTO_TOPIC, message=msg)
 
         # if disconnected to Mosquitto, queuing the HR message
         if not self.mq_client.is_connected:

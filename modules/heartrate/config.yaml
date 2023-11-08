@@ -15,6 +15,14 @@ mqtt:
       keepAlive: 120
       minReconnectDelay: 10
       timeout: 120
+  mosquitto-dev:
+    url: <put host url>
+    port: 1883
+    connection:
+      keepAlive: 120
+      minReconnectDelay: 10
+      timeout: 120
+
 
 redis:
   url: <put host url>

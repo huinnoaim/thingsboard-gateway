@@ -5,3 +5,4 @@ scipy
 python-dotenv
 aiohttp
 neurokit2
+requests

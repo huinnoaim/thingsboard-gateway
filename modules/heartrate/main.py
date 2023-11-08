@@ -33,6 +33,8 @@ class Envs(NamedTuple):
     MQTT_THINGSBOARD_ACCESS_TOKEN: str
     MQTT_MOSQUITTO_URL: str
     MQTT_MOSQUITTO_PORT: int
+    MQTT_MOSQUITTO_DEV_URL: str
+    MQTT_MOSQUITTO_DEV_PORT: int
     AI_SERVER_URL: str
     AI_SERVER_ACCESS_TOKEN: str
 
@@ -43,7 +45,11 @@ class Envs(NamedTuple):
         for field in Envs.__dict__["_fields"]:
             casting = getattr(builtins, Envs.get_typing(field), None)
             value = os.getenv(field)
-            kwargs[field] = casting(value) if casting else value
+            try:
+                kwargs[field] = casting(value) if casting else value
+            except (TypeError, ValueError) as e:
+                logger.error(f"{field}: {e}")
+                kwargs[field] = None
         return Envs(**kwargs)
 
     @classmethod
@@ -61,6 +67,8 @@ def update_cfgfile(envs: Envs, cfg_fpath: Path):
         yaml_data["mqtt"]["thingsboard"]["accessToken"] = envs.MQTT_THINGSBOARD_ACCESS_TOKEN
         yaml_data["mqtt"]["mosquitto"]["url"] = envs.MQTT_MOSQUITTO_URL
         yaml_data["mqtt"]["mosquitto"]["port"] = envs.MQTT_MOSQUITTO_PORT
+        yaml_data["mqtt"]["mosquitto-dev"]["url"] = envs.MQTT_MOSQUITTO_DEV_URL
+        yaml_data["mqtt"]["mosquitto-dev"]["port"] = envs.MQTT_MOSQUITTO_DEV_PORT
 
         yaml_data["redis"]["url"] = envs.REDIS_URL
         yaml_data["redis"]["port"] = envs.REDIS_PORT
